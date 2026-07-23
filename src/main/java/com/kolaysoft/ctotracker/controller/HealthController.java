@@ -1,5 +1,6 @@
 package com.kolaysoft.ctotracker.controller;
 
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -23,7 +24,7 @@ public class HealthController {
 
     @Operation(summary = "Saglik kontrolu",
             description = "Uygulamanin ayakta oldugunu ve veritabani baglantisinin calistigini dogrular.")
-    @GetMapping
+    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     public HealthResponse health() {
         return healthService.check();
     }
