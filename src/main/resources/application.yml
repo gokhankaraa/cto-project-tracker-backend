@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: cto-project-tracker-backend
+
+  # Gelistirme asamasinda gomulu H2 kullaniliyor (teknik karar notu 2.3).
+  # Uretimde PostgreSQL'e gecis yalnizca bu bloktaki degerlerin degismesini gerektirir.
+  datasource:
+    url: jdbc:h2:mem:ctotracker;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  jpa:
+    hibernate:
+      # Bellekteki H2 her baslatmada sifirlandigi icin semayi entity'lerden uretiyoruz.
+      ddl-auto: create-drop
+    show-sql: true
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+server:
+  port: 8080
+  error:
+    # Hatalar GlobalExceptionHandler uzerinden tek formatta donuyor;
+    # Spring'in varsayilan /error govdesi devre disi kalsin.
+    include-message: never
+    include-stacktrace: never
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+
+logging:
+  level:
+    com.kolaysoft.ctotracker: DEBUG
