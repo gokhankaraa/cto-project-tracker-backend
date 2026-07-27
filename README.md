@@ -5,9 +5,9 @@ CTO monitors the entire project portfolio from a single place.
 
 Track: **Backend (Java + Spring Boot)** · Author: Gökhan Kara
 
-> **Status:** T04 (days 5–6) complete — working skeleton, layered structure, DB connection,
-> health endpoint, a shared error format, and Swagger are in place. Business endpoints are built
-> starting from T05 (day 7).
+> **Status:** T05 (days 7–9) complete — Project and WeeklyReport CRUD is working end to end
+> (data model, layered services, validation, business rules, demo data and tests) on top of the
+> T04 skeleton (health endpoint, shared error format, Swagger). CTO dashboard is next (T07).
 
 Related document: [`docs/on_analiz.md`](docs/on_analiz.md)
 
@@ -88,15 +88,42 @@ PostgreSQL, connection details will be supplied via environment variables and ne
 | `spring.jpa.hibernate.ddl-auto` | `create-drop` | Schema is generated from entities on each startup |
 | `spring.h2.console.enabled` | `true` | H2 web console (development only) |
 
+## API endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/health` | Application and DB health check |
+| GET / POST | `/api/projects` | List / create projects |
+| GET / PUT / DELETE | `/api/projects/{id}` | Project detail / update / delete |
+| GET / POST | `/api/projects/{projectId}/reports` | List / create weekly reports for a project |
+| GET / PUT / DELETE | `/api/reports/{id}` | Weekly report detail / update / delete |
+
+The full, interactive contract is in Swagger UI. Key business rules (see pre-analysis §H-03/H-04):
+
+- A project can have only **one report per week** — a duplicate `(project, week)` returns **409**.
+- Progress is tracked as ordered stages `ANALIZ → GELISTIRME → TEST → TAMAMLANDI`; the percentage
+  (`25 / 50 / 75 / 100`) is **derived from the stage, never entered by hand**.
+- On update a report's stage may stay the same or advance exactly one step; going backward or
+  skipping a stage returns **400**.
+
+## Demo data
+
+On startup, `DataSeeder` loads sample data into the in-memory H2 (only when the DB is empty), so
+Swagger and the endpoints are usable immediately without manual setup:
+
+- **Users:** 2 project managers, 1 CTO, 1 admin (e.g. `ayse@kolaysoft.com` — PM, id 1)
+- **Projects:** PEYK, e-Donusum, EczaciPOS (assigned to the PMs)
+- **Weekly reports:** a few reports across the projects
+
 ## Package and layer structure
 
 ```
 com.kolaysoft.ctotracker
 ├── config/           Application configuration (OpenAPI/Swagger)
 ├── controller/       HTTP layer: request handling, DTO exchange
-├── service/          Business rules (stage transitions, uniqueness, live-task count)
-├── repository/       Database access via Spring Data JPA          [filled in at T05]
-├── entity/           JPA data model and enums                     [filled in at T05]
+├── service/          Business rules (stage transitions, uniqueness)
+├── repository/       Database access via Spring Data JPA
+├── entity/           JPA data model and enums
 ├── dto/              Request/response contracts (entities are not exposed directly)
 └── common/
     ├── error/        ApiError, ErrorCode, GlobalExceptionHandler
@@ -151,10 +178,13 @@ Validation errors additionally include a `fieldErrors` array:
 ./mvnw test
 ```
 
-Current tests:
+Current tests (22 in total):
 
 - `HealthControllerTest` — health endpoint and DB connection
 - `GlobalExceptionHandlerTest` — the error-format contract (400 / 404 / 405 / 409 / 500)
+- `WeeklyReportServiceTest` — business rules: uniqueness (409), stage skip/backward (400),
+  percentage derivation, not-found (404)
+- `ProjectServiceTest` — project create/mapping, owner-not-found (404)
 - `CtoProjectTrackerBackendApplicationTests` — does the Spring context load
 
 ## Known gaps
@@ -162,8 +192,8 @@ Current tests:
 MVP scope decisions, with rationale, are in sections 13–14 of the pre-analysis document.
 Not yet implemented at this stage:
 
-- Project / WeeklyReport / WorkItem entities and endpoints (T05–T06)
+- WorkItem (report line items) entity and endpoints (T06)
 - CTO dashboard summary endpoint (T07)
-- Authentication (login) and role-based authorization — out of MVP scope, deferred to a later stage
+- Authentication (login) and role-based authorization — out of MVP scope; `User.password` is
+  omitted for now and will arrive with authentication
 - Dashboard filters, report locking, audit log, export — out of MVP scope
-- Sample/demo data seeding (arrives with T05)
