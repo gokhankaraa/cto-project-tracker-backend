@@ -16,6 +16,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.kolaysoft.ctotracker.common.exception.BusinessRuleException;
 import com.kolaysoft.ctotracker.common.exception.DuplicateResourceException;
+import com.kolaysoft.ctotracker.common.exception.ResourceInUseException;
 import com.kolaysoft.ctotracker.common.exception.ResourceNotFoundException;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -86,6 +87,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BusinessRuleException.class)
     public ResponseEntity<ApiError> handleBusinessRule(BusinessRuleException ex, HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST, ErrorCode.BUSINESS_RULE_VIOLATION, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(ResourceInUseException.class)
+    public ResponseEntity<ApiError> handleResourceInUse(ResourceInUseException ex, HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, ErrorCode.RESOURCE_IN_USE, ex.getMessage(), request);
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)

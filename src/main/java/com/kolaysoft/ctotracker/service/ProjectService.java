@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.kolaysoft.ctotracker.common.exception.ResourceInUseException;
 import com.kolaysoft.ctotracker.common.exception.ResourceNotFoundException;
 import com.kolaysoft.ctotracker.dto.ProjectRequest;
 import com.kolaysoft.ctotracker.dto.ProjectResponse;
@@ -12,6 +13,7 @@ import com.kolaysoft.ctotracker.entity.Project;
 import com.kolaysoft.ctotracker.entity.User;
 import com.kolaysoft.ctotracker.repository.ProjectRepository;
 import com.kolaysoft.ctotracker.repository.UserRepository;
+import com.kolaysoft.ctotracker.repository.WeeklyReportRepository;
 
 /**
  * Proje CRUD is mantigi. Controller HTTP ile, repository veritabani ile ilgilenir;
@@ -23,10 +25,13 @@ public class ProjectService {
 
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
+    private final WeeklyReportRepository weeklyReportRepository;
 
-    public ProjectService(ProjectRepository projectRepository, UserRepository userRepository) {
+    public ProjectService(ProjectRepository projectRepository, UserRepository userRepository,
+                          WeeklyReportRepository weeklyReportRepository) {
         this.projectRepository = projectRepository;
         this.userRepository = userRepository;
+        this.weeklyReportRepository = weeklyReportRepository;
     }
 
     @Transactional(readOnly = true)
@@ -54,6 +59,11 @@ public class ProjectService {
     public void delete(Long id) {
         if (!projectRepository.existsById(id)) {
             throw new ResourceNotFoundException("Proje", id);
+        }
+        // Raporu olan proje silinemez: kazara toplu silmeyi onlemek icin anlamli 409 doner.
+        if (weeklyReportRepository.existsByProjectId(id)) {
+            throw new ResourceInUseException(
+                    "Bu projenin haftalik raporlari var; once raporlari silin.");
         }
         projectRepository.deleteById(id);
     }

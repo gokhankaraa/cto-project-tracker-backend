@@ -16,6 +16,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.kolaysoft.ctotracker.common.exception.ResourceInUseException;
 import com.kolaysoft.ctotracker.common.exception.ResourceNotFoundException;
 import com.kolaysoft.ctotracker.dto.ProjectRequest;
 import com.kolaysoft.ctotracker.dto.ProjectResponse;
@@ -25,6 +26,7 @@ import com.kolaysoft.ctotracker.entity.Role;
 import com.kolaysoft.ctotracker.entity.User;
 import com.kolaysoft.ctotracker.repository.ProjectRepository;
 import com.kolaysoft.ctotracker.repository.UserRepository;
+import com.kolaysoft.ctotracker.repository.WeeklyReportRepository;
 
 /** ProjectService birim testleri (Spring context'siz, Mockito ile). */
 @ExtendWith(MockitoExtension.class)
@@ -35,6 +37,9 @@ class ProjectServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private WeeklyReportRepository weeklyReportRepository;
 
     @InjectMocks
     private ProjectService service;
@@ -98,5 +103,28 @@ class ProjectServiceTest {
                 .isInstanceOf(ResourceNotFoundException.class);
 
         verify(projectRepository, never()).deleteById(any());
+    }
+
+    @Test
+    @DisplayName("Silme: raporu olan proje silinemez, 409 ResourceInUse")
+    void deleteRejectsProjectWithReports() {
+        when(projectRepository.existsById(1L)).thenReturn(true);
+        when(weeklyReportRepository.existsByProjectId(1L)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.delete(1L))
+                .isInstanceOf(ResourceInUseException.class);
+
+        verify(projectRepository, never()).deleteById(any());
+    }
+
+    @Test
+    @DisplayName("Silme: raporu olmayan proje silinir")
+    void deleteRemovesProjectWithoutReports() {
+        when(projectRepository.existsById(1L)).thenReturn(true);
+        when(weeklyReportRepository.existsByProjectId(1L)).thenReturn(false);
+
+        service.delete(1L);
+
+        verify(projectRepository).deleteById(1L);
     }
 }

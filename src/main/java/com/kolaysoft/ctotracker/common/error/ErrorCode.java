@@ -18,6 +18,9 @@ public enum ErrorCode {
     /** Benzersizlik ihlali: ayni proje+hafta raporu, kayitli e-posta. */
     DUPLICATE_RESOURCE,
 
+    /** Kaynak baska kayitlar tarafindan kullanildigi icin islem yapilamiyor (or. raporu olan proje silinemez). */
+    RESOURCE_IN_USE,
+
     /** Is kurali ihlali: ornegin ilerleme kademesinde sira atlanmasi. */
     BUSINESS_RULE_VIOLATION,
 
