@@ -5,9 +5,9 @@ CTO monitors the entire project portfolio from a single place.
 
 Track: **Backend (Java + Spring Boot)** · Author: Gökhan Kara
 
-> **Status:** T05 (days 7–9) complete — Project and WeeklyReport CRUD is working end to end
-> (data model, layered services, validation, business rules, demo data and tests) on top of the
-> T04 skeleton (health endpoint, shared error format, Swagger). CTO dashboard is next (T07).
+> **Status:** T06 (days 10–12) complete — WorkItem (report line items) CRUD is working with a
+> derived live-task count, on top of Project/WeeklyReport CRUD (T05) and the T04 skeleton (health
+> endpoint, shared error format, Swagger). CTO dashboard is next (T07).
 
 Related document: [`docs/on_analiz.md`](docs/on_analiz.md)
 
@@ -97,6 +97,8 @@ PostgreSQL, connection details will be supplied via environment variables and ne
 | GET / PUT / DELETE | `/api/projects/{id}` | Project detail / update / delete |
 | GET / POST | `/api/projects/{projectId}/reports` | List / create weekly reports for a project |
 | GET / PUT / DELETE | `/api/reports/{id}` | Weekly report detail / update / delete |
+| GET / POST | `/api/reports/{reportId}/work-items` | List / create work items for a report |
+| GET / PUT / DELETE | `/api/work-items/{id}` | Work item detail / update / delete |
 
 The full, interactive contract is in Swagger UI. Key business rules (see pre-analysis §H-03/H-04):
 
@@ -105,6 +107,10 @@ The full, interactive contract is in Swagger UI. Key business rules (see pre-ana
   (`25 / 50 / 75 / 100`) is **derived from the stage, never entered by hand**.
 - On update a report's stage may stay the same or advance exactly one step; going backward or
   skipping a stage returns **400**.
+- Work items belong to a report; deleting a report also deletes its work items (cascade). The
+  report's **live task count** is derived from the number of `DEVAM_EDIYOR` work items — not stored
+  separately.
+- A project that still has weekly reports cannot be deleted (**409**); delete its reports first.
 
 ## Demo data
 
@@ -170,6 +176,7 @@ Validation errors additionally include a `fieldErrors` array:
 | `RESOURCE_NOT_FOUND` | 404 | Record or endpoint not found |
 | `METHOD_NOT_ALLOWED` | 405 | Endpoint does not support this HTTP method |
 | `DUPLICATE_RESOURCE` | 409 | Uniqueness violation (project+week, email) |
+| `RESOURCE_IN_USE` | 409 | Resource can't be deleted because other records depend on it (e.g. a project that still has reports) |
 | `INTERNAL_ERROR` | 500 | Unexpected error; technical detail is logged, not leaked to the client |
 
 ## Tests
@@ -178,13 +185,14 @@ Validation errors additionally include a `fieldErrors` array:
 ./mvnw test
 ```
 
-Current tests (22 in total):
+Current tests (32 in total):
 
 - `HealthControllerTest` — health endpoint and DB connection
 - `GlobalExceptionHandlerTest` — the error-format contract (400 / 404 / 405 / 409 / 500)
 - `WeeklyReportServiceTest` — business rules: uniqueness (409), stage skip/backward (400),
   percentage derivation, not-found (404)
-- `ProjectServiceTest` — project create/mapping, owner-not-found (404)
+- `ProjectServiceTest` — project create/mapping, owner-not-found (404), delete-with-reports (409)
+- `WorkItemServiceTest` — work item CRUD, report-not-found (404), delete
 - `CtoProjectTrackerBackendApplicationTests` — does the Spring context load
 
 ## Known gaps
@@ -192,7 +200,6 @@ Current tests (22 in total):
 MVP scope decisions, with rationale, are in sections 13–14 of the pre-analysis document.
 Not yet implemented at this stage:
 
-- WorkItem (report line items) entity and endpoints (T06)
 - CTO dashboard summary endpoint (T07)
 - Authentication (login) and role-based authorization — out of MVP scope; `User.password` is
   omitted for now and will arrive with authentication
