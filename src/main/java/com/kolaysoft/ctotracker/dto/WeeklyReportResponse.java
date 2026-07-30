@@ -33,6 +33,9 @@ public record WeeklyReportResponse(
         @Schema(description = "Ilerleme yuzdesi (kademeden turer)", example = "50")
         int progressPercentage,
 
+        @Schema(description = "Canli task sayisi (durumu DEVAM_EDIYOR olan is kalemleri)", example = "2")
+        long liveTaskCount,
+
         @Schema(description = "Genel durum", example = "YOLUNDA")
         OverallStatus overallStatus,
 

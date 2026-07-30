@@ -30,6 +30,7 @@ import com.kolaysoft.ctotracker.entity.RiskLevel;
 import com.kolaysoft.ctotracker.entity.WeeklyReport;
 import com.kolaysoft.ctotracker.repository.ProjectRepository;
 import com.kolaysoft.ctotracker.repository.WeeklyReportRepository;
+import com.kolaysoft.ctotracker.repository.WorkItemRepository;
 
 /** WeeklyReportService is kurallarinin birim testleri (Spring context'siz, Mockito ile). */
 @ExtendWith(MockitoExtension.class)
@@ -40,6 +41,9 @@ class WeeklyReportServiceTest {
 
     @Mock
     private ProjectRepository projectRepository;
+
+    @Mock
+    private WorkItemRepository workItemRepository;
 
     @InjectMocks
     private WeeklyReportService service;

@@ -13,8 +13,10 @@ import com.kolaysoft.ctotracker.dto.WeeklyReportResponse;
 import com.kolaysoft.ctotracker.entity.ProgressStage;
 import com.kolaysoft.ctotracker.entity.Project;
 import com.kolaysoft.ctotracker.entity.WeeklyReport;
+import com.kolaysoft.ctotracker.entity.WorkItemStatus;
 import com.kolaysoft.ctotracker.repository.ProjectRepository;
 import com.kolaysoft.ctotracker.repository.WeeklyReportRepository;
+import com.kolaysoft.ctotracker.repository.WorkItemRepository;
 
 /**
  * Haftalik rapor CRUD is mantigi ve is kurallari (on analiz H-03/H-04/H-05).
@@ -35,18 +37,21 @@ public class WeeklyReportService {
 
     private final WeeklyReportRepository weeklyReportRepository;
     private final ProjectRepository projectRepository;
+    private final WorkItemRepository workItemRepository;
 
     public WeeklyReportService(WeeklyReportRepository weeklyReportRepository,
-                               ProjectRepository projectRepository) {
+                               ProjectRepository projectRepository,
+                               WorkItemRepository workItemRepository) {
         this.weeklyReportRepository = weeklyReportRepository;
         this.projectRepository = projectRepository;
+        this.workItemRepository = workItemRepository;
     }
 
     @Transactional(readOnly = true)
     public List<WeeklyReportResponse> findByProject(Long projectId) {
         requireProjectExists(projectId);
         return weeklyReportRepository.findByProjectId(projectId).stream()
-                .map(WeeklyReportService::toResponse).toList();
+                .map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -129,7 +134,10 @@ public class WeeklyReportService {
         }
     }
 
-    private static WeeklyReportResponse toResponse(WeeklyReport r) {
+    private WeeklyReportResponse toResponse(WeeklyReport r) {
+        // Canli task: durumu DEVAM_EDIYOR olan is kalemleri (on analiz H-05); ayri alan tutulmaz.
+        long liveTaskCount = workItemRepository.countByWeeklyReportIdAndStatus(
+                r.getId(), WorkItemStatus.DEVAM_EDIYOR);
         return new WeeklyReportResponse(
                 r.getId(),
                 r.getProject().getId(),
@@ -137,6 +145,7 @@ public class WeeklyReportService {
                 r.getReportDate(),
                 r.getProgressStage(),
                 r.getProgressStage().getPercentage(),
+                liveTaskCount,
                 r.getOverallStatus(),
                 r.getRiskLevel(),
                 r.getDone(),
