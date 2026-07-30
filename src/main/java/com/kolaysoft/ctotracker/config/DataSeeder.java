@@ -15,9 +15,12 @@ import com.kolaysoft.ctotracker.entity.RiskLevel;
 import com.kolaysoft.ctotracker.entity.Role;
 import com.kolaysoft.ctotracker.entity.User;
 import com.kolaysoft.ctotracker.entity.WeeklyReport;
+import com.kolaysoft.ctotracker.entity.WorkItem;
+import com.kolaysoft.ctotracker.entity.WorkItemStatus;
 import com.kolaysoft.ctotracker.repository.ProjectRepository;
 import com.kolaysoft.ctotracker.repository.UserRepository;
 import com.kolaysoft.ctotracker.repository.WeeklyReportRepository;
+import com.kolaysoft.ctotracker.repository.WorkItemRepository;
 
 /**
  * Gelistirme/demo icin ornek veri yukler. Bellekteki H2 her baslatmada bos geldigi
@@ -34,12 +37,15 @@ public class DataSeeder implements CommandLineRunner {
     private final UserRepository userRepository;
     private final ProjectRepository projectRepository;
     private final WeeklyReportRepository weeklyReportRepository;
+    private final WorkItemRepository workItemRepository;
 
     public DataSeeder(UserRepository userRepository, ProjectRepository projectRepository,
-                      WeeklyReportRepository weeklyReportRepository) {
+                      WeeklyReportRepository weeklyReportRepository,
+                      WorkItemRepository workItemRepository) {
         this.userRepository = userRepository;
         this.projectRepository = projectRepository;
         this.weeklyReportRepository = weeklyReportRepository;
+        this.workItemRepository = workItemRepository;
     }
 
     @Override
@@ -60,19 +66,29 @@ public class DataSeeder implements CommandLineRunner {
         saveProject("EczaciPOS", "Kolaysoft", "Eczanelere POS ve yazilim cozumu",
                 ProjectStatus.PLANLANDI, ayse);
 
-        saveReport(peyk, 29, LocalDate.of(2026, 7, 20), ProgressStage.GELISTIRME,
+        WeeklyReport peykW29 = saveReport(peyk, 29, LocalDate.of(2026, 7, 20), ProgressStage.GELISTIRME,
                 OverallStatus.YOLUNDA, RiskLevel.ORTA,
                 "Rapor formu API'si gelistirildi.", "Dashboard ozet endpoint'i.",
                 "Zaman kisiti.", "Genel gidisat iyi.");
         saveReport(peyk, 30, LocalDate.of(2026, 7, 27), ProgressStage.TEST,
                 OverallStatus.YOLUNDA, RiskLevel.DUSUK,
                 "Testler yazildi.", "Hata duzeltme.", "-", "Test asamasinda.");
-        saveReport(edonusum, 30, LocalDate.of(2026, 7, 27), ProgressStage.ANALIZ,
+        WeeklyReport edonusumW30 = saveReport(edonusum, 30, LocalDate.of(2026, 7, 27), ProgressStage.ANALIZ,
                 OverallStatus.RISKLI, RiskLevel.YUKSEK,
                 "Mevzuat analizi.", "Veri modeli.", "Mevzuat belirsizligi.", "Analiz suruyor.");
 
-        log.info("Ornek veri yuklendi: {} kullanici, {} proje, {} rapor",
-                userRepository.count(), projectRepository.count(), weeklyReportRepository.count());
+        saveWorkItem(peykW29, "Rapor CRUD API'si", "Project/WeeklyReport endpoint'leri",
+                "Ayse Yilmaz", WorkItemStatus.TAMAMLANDI);
+        saveWorkItem(peykW29, "Is kalemi modeli", "WorkItem entity ve CRUD",
+                "Ayse Yilmaz", WorkItemStatus.DEVAM_EDIYOR);
+        saveWorkItem(peykW29, "Dashboard ozeti", "CTO ozet endpoint'i",
+                "Mehmet Kaya", WorkItemStatus.PLANLANDI);
+        saveWorkItem(edonusumW30, "Mevzuat analizi", "e-Fatura kurallari",
+                "Mehmet Kaya", WorkItemStatus.DEVAM_EDIYOR);
+
+        log.info("Ornek veri yuklendi: {} kullanici, {} proje, {} rapor, {} is kalemi",
+                userRepository.count(), projectRepository.count(),
+                weeklyReportRepository.count(), workItemRepository.count());
     }
 
     private User saveUser(String email, String fullName, Role role) {
@@ -94,9 +110,9 @@ public class DataSeeder implements CommandLineRunner {
         return projectRepository.save(project);
     }
 
-    private void saveReport(Project project, int weekNumber, LocalDate reportDate, ProgressStage stage,
-                            OverallStatus overallStatus, RiskLevel riskLevel,
-                            String done, String planned, String risks, String note) {
+    private WeeklyReport saveReport(Project project, int weekNumber, LocalDate reportDate, ProgressStage stage,
+                                    OverallStatus overallStatus, RiskLevel riskLevel,
+                                    String done, String planned, String risks, String note) {
         WeeklyReport report = new WeeklyReport();
         report.setProject(project);
         report.setWeekNumber(weekNumber);
@@ -108,6 +124,17 @@ public class DataSeeder implements CommandLineRunner {
         report.setPlanned(planned);
         report.setRisks(risks);
         report.setNote(note);
-        weeklyReportRepository.save(report);
+        return weeklyReportRepository.save(report);
+    }
+
+    private void saveWorkItem(WeeklyReport report, String title, String description,
+                              String assignee, WorkItemStatus status) {
+        WorkItem workItem = new WorkItem();
+        workItem.setWeeklyReport(report);
+        workItem.setTitle(title);
+        workItem.setDescription(description);
+        workItem.setAssignee(assignee);
+        workItem.setStatus(status);
+        workItemRepository.save(workItem);
     }
 }
