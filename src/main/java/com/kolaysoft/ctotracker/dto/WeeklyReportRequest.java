@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 /**
  * Haftalik rapor olusturma/guncelleme istegi.
@@ -41,14 +42,18 @@ public record WeeklyReportRequest(
         RiskLevel riskLevel,
 
         @Schema(description = "O hafta yapilanlar")
+        @Size(max = 2000, message = "Yapilanlar en fazla 2000 karakter olabilir.")
         String done,
 
         @Schema(description = "Gelecek hafta yapilacaklar")
+        @Size(max = 2000, message = "Yapilacaklar en fazla 2000 karakter olabilir.")
         String planned,
 
         @Schema(description = "Riskler / engeller")
+        @Size(max = 2000, message = "Riskler en fazla 2000 karakter olabilir.")
         String risks,
 
         @Schema(description = "Genel durum notu")
+        @Size(max = 2000, message = "Genel not en fazla 2000 karakter olabilir.")
         String note) {
 }
