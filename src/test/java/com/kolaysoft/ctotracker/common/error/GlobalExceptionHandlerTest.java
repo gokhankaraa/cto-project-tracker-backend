@@ -112,10 +112,20 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.status").value(404));
     }
 
+    @Test
+    @DisplayName("Gecersiz enum parametresi 400 INVALID_REQUEST doner (500 degil)")
+    void typeMismatchReturns400() throws Exception {
+        mockMvc.perform(get("/test-errors/enum-param").param("level", "COK_YUKSEK"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
     @TestConfiguration
     @RestController
     @RequestMapping("/test-errors")
     static class TestEndpoints {
+
+        enum SampleLevel { DUSUK, ORTA, YUKSEK }
 
         record SampleRequest(@NotBlank(message = "Baslik zorunludur.") String title,
                              @Min(value = 1, message = "Hafta numarasi en az 1 olmalidir.")
@@ -125,6 +135,11 @@ class GlobalExceptionHandlerTest {
         @PostMapping("/validate")
         String validate(@Valid @RequestBody SampleRequest request) {
             return request.title();
+        }
+
+        @org.springframework.web.bind.annotation.GetMapping("/enum-param")
+        String enumParam(@org.springframework.web.bind.annotation.RequestParam SampleLevel level) {
+            return level.name();
         }
 
         @org.springframework.web.bind.annotation.GetMapping("/not-found")

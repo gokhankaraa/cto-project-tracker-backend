@@ -12,6 +12,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.kolaysoft.ctotracker.common.exception.BusinessRuleException;
@@ -65,6 +66,16 @@ public class GlobalExceptionHandler {
 
         return build(HttpStatus.BAD_REQUEST, ErrorCode.INVALID_REQUEST,
                 "Istek govdesi okunamadi. Alan tiplerini ve enum degerlerini kontrol edin.", request);
+    }
+
+    /** Path/query parametresi beklenen tipe cevrilemedi (or. tanimsiz enum, sayi yerine metin). */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiError> handleTypeMismatch(MethodArgumentTypeMismatchException ex,
+                                                       HttpServletRequest request) {
+        log.debug("Parametre tipi uyumsuz: {}", ex.getMessage());
+
+        return build(HttpStatus.BAD_REQUEST, ErrorCode.INVALID_REQUEST,
+                "'%s' parametresinin degeri gecersiz.".formatted(ex.getName()), request);
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)
