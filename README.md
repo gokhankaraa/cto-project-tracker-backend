@@ -5,9 +5,10 @@ CTO monitors the entire project portfolio from a single place.
 
 Track: **Backend (Java + Spring Boot)** · Author: Gökhan Kara
 
-> **Status:** T06 (days 10–12) complete — WorkItem (report line items) CRUD is working with a
-> derived live-task count, on top of Project/WeeklyReport CRUD (T05) and the T04 skeleton (health
-> endpoint, shared error format, Swagger). CTO dashboard is next (T07).
+> **Status:** T07 (days 13–14) complete — the CTO dashboard summary endpoint aggregates every
+> project's latest status in one view, on top of WorkItem CRUD (T06), Project/WeeklyReport CRUD
+> (T05) and the T04 skeleton (health endpoint, shared error format, Swagger). MVP test round is
+> next (T08).
 
 Related document: [`docs/on_analiz.md`](docs/on_analiz.md)
 
@@ -99,6 +100,7 @@ PostgreSQL, connection details will be supplied via environment variables and ne
 | GET / PUT / DELETE | `/api/reports/{id}` | Weekly report detail / update / delete |
 | GET / POST | `/api/reports/{reportId}/work-items` | List / create work items for a report |
 | GET / PUT / DELETE | `/api/work-items/{id}` | Work item detail / update / delete |
+| GET | `/api/dashboard/summary` | CTO portfolio summary (optional `?riskLevel=`) |
 
 The full, interactive contract is in Swagger UI. Key business rules (see pre-analysis §H-03/H-04):
 
@@ -111,6 +113,13 @@ The full, interactive contract is in Swagger UI. Key business rules (see pre-ana
   report's **live task count** is derived from the number of `DEVAM_EDIYOR` work items — not stored
   separately.
 - A project that still has weekly reports cannot be deleted (**409**); delete its reports first.
+- The dashboard summary reports each project's **latest** report (highest week number). Projects with
+  no report are still listed, with empty/default progress. Portfolio counters (total, high-risk,
+  without-report, total live tasks) accompany the per-project rows.
+
+> **Scope note (from the pre-analysis):** progress uses a single staged model, so there is no
+> separate "target %"; the schedule (`scheduleStatus`) field is out of MVP scope. Both are
+> documented decisions in the analysis document.
 
 ## Demo data
 
@@ -185,14 +194,16 @@ Validation errors additionally include a `fieldErrors` array:
 ./mvnw test
 ```
 
-Current tests (32 in total):
+Current tests (36 in total):
 
 - `HealthControllerTest` — health endpoint and DB connection
-- `GlobalExceptionHandlerTest` — the error-format contract (400 / 404 / 405 / 409 / 500)
+- `GlobalExceptionHandlerTest` — the error-format contract (400 / 404 / 405 / 409 / 500), including
+  invalid enum/type request parameters
 - `WeeklyReportServiceTest` — business rules: uniqueness (409), stage skip/backward (400),
   percentage derivation, not-found (404)
 - `ProjectServiceTest` — project create/mapping, owner-not-found (404), delete-with-reports (409)
 - `WorkItemServiceTest` — work item CRUD, report-not-found (404), delete
+- `DashboardServiceTest` — portfolio aggregation, latest-report selection, risk filter, empty portfolio
 - `CtoProjectTrackerBackendApplicationTests` — does the Spring context load
 
 ## Known gaps
@@ -200,7 +211,6 @@ Current tests (32 in total):
 MVP scope decisions, with rationale, are in sections 13–14 of the pre-analysis document.
 Not yet implemented at this stage:
 
-- CTO dashboard summary endpoint (T07)
 - Authentication (login) and role-based authorization — out of MVP scope; `User.password` is
   omitted for now and will arrive with authentication
 - Dashboard filters, report locking, audit log, export — out of MVP scope
