@@ -1,0 +1,171 @@
+package com.kolaysoft.ctotracker;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+/**
+ * MVP uctan uca entegrasyon testleri (T08 test turu).
+ *
+ * <p>Gercek uygulamayi ayaga kaldirip HTTP katmanindan (MockMvc) test eder: proje -> rapor ->
+ * is kalemi -> dashboard akisi ve kritik negatif senaryolar. Her test {@code @Transactional}
+ * ile izole edilir; olusturulan veriler test sonunda geri alinir (seed verisi korunur).
+ *
+ * <p>Seed verisine dayanir (DataSeeder): kullanici id 1 = Ayse (PM), proje id 1 = PEYK
+ * (hafta 29 ve 30 raporlu), proje id 3 = EczaciPOS (raporsuz).
+ */
+@SpringBootTest
+@AutoConfigureMockMvc
+@Transactional
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+class MvpIntegrationTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private long idOf(MvcResult result) throws Exception {
+        return objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asLong();
+    }
+
+    @Test
+    @DisplayName("Happy path: raporsuz projeye rapor + is kalemi eklenir, dashboard'a yansir")
+    void endToEndHappyPath() throws Exception {
+        // Proje 3 (EczaciPOS) baslangicta raporsuz -> dashboard'da hasReport=false
+        mockMvc.perform(get("/api/dashboard/summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.projects[?(@.projectId==3)].hasReport").value(org.hamcrest.Matchers.hasItem(false)));
+
+        // Rapora ekle (hafta 25, ANALIZ)
+        String reportBody = """
+                { "weekNumber": 25, "reportDate": "2026-08-03", "progressStage": "ANALIZ",
+                  "overallStatus": "YOLUNDA", "riskLevel": "DUSUK" }
+                """;
+        MvcResult reportRes = mockMvc.perform(post("/api/projects/3/reports")
+                        .contentType(MediaType.APPLICATION_JSON).content(reportBody))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.progressPercentage").value(25))
+                .andExpect(jsonPath("$.liveTaskCount").value(0))
+                .andReturn();
+        long reportId = idOf(reportRes);
+
+        // Is kalemi ekle (DEVAM_EDIYOR)
+        String itemBody = """
+                { "title": "Analiz gorusmesi", "status": "DEVAM_EDIYOR", "assignee": "Ayse" }
+                """;
+        mockMvc.perform(post("/api/reports/" + reportId + "/work-items")
+                        .contentType(MediaType.APPLICATION_JSON).content(itemBody))
+                .andExpect(status().isCreated());
+
+        // Rapor artik 1 canli task gostermeli
+        mockMvc.perform(get("/api/reports/" + reportId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.liveTaskCount").value(1));
+
+        // Dashboard'da proje 3 artik raporlu ve dogru kademe
+        mockMvc.perform(get("/api/dashboard/summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.projects[?(@.projectId==3)].hasReport").value(org.hamcrest.Matchers.hasItem(true)))
+                .andExpect(jsonPath("$.projects[?(@.projectId==3)].progressPercentage").value(org.hamcrest.Matchers.hasItem(25)));
+    }
+
+    @Test
+    @DisplayName("Negatif: olmayan proje 404")
+    void missingProjectReturns404() throws Exception {
+        mockMvc.perform(get("/api/projects/99999"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("Validasyon: zorunlu alanlar eksik proje 400")
+    void invalidProjectReturns400() throws Exception {
+        mockMvc.perform(post("/api/projects").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.fieldErrors").isNotEmpty());
+    }
+
+    @Test
+    @DisplayName("Validasyon: cok uzun proje adi 400")
+    void tooLongNameReturns400() throws Exception {
+        String longName = "P".repeat(300);
+        String body = """
+                { "name": "%s", "status": "PLANLANDI", "ownerId": 1 }
+                """.formatted(longName);
+        mockMvc.perform(post("/api/projects").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    @DisplayName("Is kurali: ayni proje+hafta ikinci rapor 409")
+    void duplicateReportReturns409() throws Exception {
+        // Proje 1 (PEYK) hafta 29 seed'de mevcut
+        String body = """
+                { "weekNumber": 29, "reportDate": "2026-07-20", "progressStage": "ANALIZ",
+                  "overallStatus": "YOLUNDA", "riskLevel": "DUSUK" }
+                """;
+        mockMvc.perform(post("/api/projects/1/reports")
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DUPLICATE_RESOURCE"));
+    }
+
+    @Test
+    @DisplayName("Is kurali: kademe atlama 400")
+    void stageSkipReturns400() throws Exception {
+        // Yeni rapor olustur (ANALIZ), sonra TAMAMLANDI'ya atlamayi dene
+        String reportBody = """
+                { "weekNumber": 26, "reportDate": "2026-08-03", "progressStage": "ANALIZ",
+                  "overallStatus": "YOLUNDA", "riskLevel": "DUSUK" }
+                """;
+        MvcResult res = mockMvc.perform(post("/api/projects/3/reports")
+                        .contentType(MediaType.APPLICATION_JSON).content(reportBody))
+                .andExpect(status().isCreated()).andReturn();
+        long reportId = idOf(res);
+
+        String skipBody = """
+                { "weekNumber": 26, "reportDate": "2026-08-03", "progressStage": "TAMAMLANDI",
+                  "overallStatus": "YOLUNDA", "riskLevel": "DUSUK" }
+                """;
+        mockMvc.perform(put("/api/reports/" + reportId)
+                        .contentType(MediaType.APPLICATION_JSON).content(skipBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BUSINESS_RULE_VIOLATION"));
+    }
+
+    @Test
+    @DisplayName("Dashboard: gecersiz risk parametresi 400")
+    void dashboardInvalidRiskReturns400() throws Exception {
+        mockMvc.perform(get("/api/dashboard/summary").param("riskLevel", "COK_YUKSEK"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    @DisplayName("Dashboard: risk filtresi yalnizca eslesen projeleri doner")
+    void dashboardRiskFilterWorks() throws Exception {
+        // Seed: e-Donusum (proje 2) son raporu YUKSEK risk
+        mockMvc.perform(get("/api/dashboard/summary").param("riskLevel", "YUKSEK"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.projects[*].riskLevel")
+                        .value(org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is("YUKSEK"))));
+    }
+}
