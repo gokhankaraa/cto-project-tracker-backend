@@ -194,8 +194,10 @@ Validation errors additionally include a `fieldErrors` array:
 ./mvnw test
 ```
 
-Current tests (36 in total):
+Current tests (44 in total):
 
+- `MvpIntegrationTest` — end-to-end HTTP flows (@SpringBootTest + MockMvc): happy path
+  (project → report → work item → dashboard), 404 / 400 / 409, stage skip, dashboard filter
 - `HealthControllerTest` — health endpoint and DB connection
 - `GlobalExceptionHandlerTest` — the error-format contract (400 / 404 / 405 / 409 / 500), including
   invalid enum/type request parameters
