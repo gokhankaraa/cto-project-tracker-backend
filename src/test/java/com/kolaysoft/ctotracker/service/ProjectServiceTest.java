@@ -86,6 +86,53 @@ class ProjectServiceTest {
     }
 
     @Test
+    @DisplayName("Guncelleme: mevcut proje alanlari guncellenir")
+    void updateChangesFields() {
+        Project existing = new Project();
+        existing.setId(5L);
+        existing.setName("Eski");
+        existing.setStatus(ProjectStatus.PLANLANDI);
+        when(projectRepository.findById(5L)).thenReturn(Optional.of(existing));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(owner()));
+        when(projectRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        ProjectResponse response = service.update(5L,
+                new ProjectRequest("Yeni Ad", "Kolaysoft", "guncel", ProjectStatus.DEVAM_EDIYOR, 1L));
+
+        assertThat(response.id()).isEqualTo(5L);
+        assertThat(response.name()).isEqualTo("Yeni Ad");
+        assertThat(response.status()).isEqualTo(ProjectStatus.DEVAM_EDIYOR);
+        assertThat(response.ownerId()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("Guncelleme: olmayan proje 404 ResourceNotFound")
+    void updateRejectsMissingProject() {
+        when(projectRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.update(99L,
+                new ProjectRequest("X", "Kolaysoft", "-", ProjectStatus.PLANLANDI, 1L)))
+                .isInstanceOf(ResourceNotFoundException.class);
+
+        verify(projectRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Guncelleme: olmayan owner 404 ResourceNotFound")
+    void updateRejectsMissingOwner() {
+        Project existing = new Project();
+        existing.setId(5L);
+        when(projectRepository.findById(5L)).thenReturn(Optional.of(existing));
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.update(5L,
+                new ProjectRequest("X", "Kolaysoft", "-", ProjectStatus.PLANLANDI, 99L)))
+                .isInstanceOf(ResourceNotFoundException.class);
+
+        verify(projectRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("Detay: olmayan proje 404 ResourceNotFound")
     void findByIdRejectsMissingProject() {
         when(projectRepository.findById(99L)).thenReturn(Optional.empty());
