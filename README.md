@@ -87,6 +87,10 @@ All settings live in [`src/main/resources/application.yml`](src/main/resources/a
 The development environment contains no secret values (H2 user `sa`, empty password). When moving to
 PostgreSQL, connection details will be supplied via environment variables and never committed.
 
+The MVP runs in a single environment (local H2), so no separate Spring profile was needed. For
+production (e.g. PostgreSQL), a `prod` profile with env-supplied connection details can be added
+without touching the code.
+
 | Setting | Default | Description |
 |---|---|---|
 | `server.port` | `8080` | Application port |
