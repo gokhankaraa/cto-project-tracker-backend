@@ -10,7 +10,12 @@ Track: **Backend (Java + Spring Boot)** · Author: Gökhan Kara
 > (T05) and the T04 skeleton (health endpoint, shared error format, Swagger). MVP test round is
 > next (T08).
 
-Related document: [`docs/on_analiz.md`](docs/on_analiz.md)
+Project documents (in [`docs/`](docs/)):
+- [`on_analiz.md`](docs/on_analiz.md) — pre-analysis (problem, roles, scope, user stories, acceptance criteria)
+- [`teknik-karar-notu.docx`](docs/teknik-karar-notu.docx) — technical decision note and learning plan
+- [`test-raporu-MVP-T08.docx`](docs/test-raporu-MVP-T08.docx) — MVP test report (incl. T09 regression)
+- [`Test Senaryolari - CTO Takip Sistemi.xlsx`](docs/) — detailed test-case log
+- Weekly internship reports and per-task reports
 
 ---
 
@@ -126,9 +131,39 @@ The full, interactive contract is in Swagger UI. Key business rules (see pre-ana
 On startup, `DataSeeder` loads sample data into the in-memory H2 (only when the DB is empty), so
 Swagger and the endpoints are usable immediately without manual setup:
 
-- **Users:** 2 project managers, 1 CTO, 1 admin (e.g. `ayse@kolaysoft.com` — PM, id 1)
-- **Projects:** PEYK, e-Donusum, EczaciPOS (assigned to the PMs)
-- **Weekly reports:** a few reports across the projects
+**Sample users** (no password — authentication is out of MVP scope):
+
+| id | email | role |
+|---|---|---|
+| 1 | `ayse@kolaysoft.com` | PROJECT_MANAGER |
+| 2 | `mehmet@kolaysoft.com` | PROJECT_MANAGER |
+| 3 | `cto@kolaysoft.com` | CTO |
+| 4 | `admin@kolaysoft.com` | ADMIN |
+
+- **Projects:** PEYK (owner: Ayşe), e-Donusum (owner: Mehmet), EczaciPOS (owner: Ayşe, no report yet)
+- **Weekly reports:** PEYK weeks 29–30, e-Donusum week 30, with a few work items
+
+## Demo scenario
+
+A typical end-to-end walkthrough (run against the seeded data via Swagger UI or `curl`). `{id}`
+values come from the responses of the previous steps.
+
+1. **CTO opens the dashboard** — see every project's latest status in one view:
+   `GET /api/dashboard/summary` → 200, portfolio counters + per-project rows
+2. **Filter high-risk projects:** `GET /api/dashboard/summary?riskLevel=YUKSEK` → only e-Donusum
+3. **Drill into a project:** `GET /api/projects/3` and `GET /api/projects/3/reports`
+   (EczaciPOS has no report yet)
+4. **PM files a weekly report** for EczaciPOS (id 3):
+   `POST /api/projects/3/reports` `{ "weekNumber": 33, "reportDate": "2026-08-13",
+   "progressStage": "ANALIZ", "overallStatus": "YOLUNDA", "riskLevel": "DUSUK" }` → 201, `progressPercentage: 25`
+5. **Add a work item** to that report: `POST /api/reports/{reportId}/work-items`
+   `{ "title": "Kickoff", "status": "DEVAM_EDIYOR", "assignee": "Ayşe" }` → 201
+6. **Re-read the report** — the live task count reflects the new item:
+   `GET /api/reports/{reportId}` → `liveTaskCount: 1`
+7. **Back to the dashboard** — EczaciPOS now shows `hasReport: true` with the fresh status.
+
+Negative checks worth showing: a duplicate `(project, week)` report → **409**, skipping a progress
+stage on update → **400**, deleting a project that still has reports → **409**.
 
 ## Package and layer structure
 
@@ -194,7 +229,7 @@ Validation errors additionally include a `fieldErrors` array:
 ./mvnw test
 ```
 
-Current tests (44 in total):
+Current tests (47 in total):
 
 - `MvpIntegrationTest` — end-to-end HTTP flows (@SpringBootTest + MockMvc): happy path
   (project → report → work item → dashboard), 404 / 400 / 409, stage skip, dashboard filter
@@ -203,7 +238,7 @@ Current tests (44 in total):
   invalid enum/type request parameters
 - `WeeklyReportServiceTest` — business rules: uniqueness (409), stage skip/backward (400),
   percentage derivation, not-found (404)
-- `ProjectServiceTest` — project create/mapping, owner-not-found (404), delete-with-reports (409)
+- `ProjectServiceTest` — project create/update/mapping, owner-not-found (404), delete-with-reports (409)
 - `WorkItemServiceTest` — work item CRUD, report-not-found (404), delete
 - `DashboardServiceTest` — portfolio aggregation, latest-report selection, risk filter, empty portfolio
 - `CtoProjectTrackerBackendApplicationTests` — does the Spring context load
@@ -215,4 +250,6 @@ Not yet implemented at this stage:
 
 - Authentication (login) and role-based authorization — out of MVP scope; `User.password` is
   omitted for now and will arrive with authentication
-- Dashboard filters, report locking, audit log, export — out of MVP scope
+- Dashboard filtering is partial: a **risk-level filter** is implemented; project/week/status
+  filters are planned for a later extension (T13)
+- Report locking, audit log, export — out of MVP scope
