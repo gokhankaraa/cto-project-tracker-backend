@@ -55,6 +55,27 @@ Alternatively, build and run a jar:
 java -jar target/cto-project-tracker-backend-0.0.1-SNAPSHOT.jar
 ```
 
+### Run with Docker
+
+The app ships with a multi-stage `Dockerfile` (builds the jar inside the image, then runs it on a
+JRE), so it runs anywhere Docker is installed — no local Java/Maven needed:
+
+```bash
+docker build -t cto-tracker:1.0 .
+docker run -d --name cto-demo -p 8080:8080 cto-tracker:1.0
+
+curl http://localhost:8080/api/health   # {"status":"UP","databaseStatus":"UP", ...}
+```
+
+Stop and remove the container:
+
+```bash
+docker rm -f cto-demo
+```
+
+The in-memory H2 database is seeded on startup, so the dashboard and endpoints are usable
+immediately inside the container (no external database required).
+
 ### Verifying it runs
 
 | What | Address | Expected |
