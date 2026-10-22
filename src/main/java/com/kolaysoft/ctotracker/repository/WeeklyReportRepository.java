@@ -4,10 +4,13 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import com.kolaysoft.ctotracker.entity.WeeklyReport;
 
-public interface WeeklyReportRepository extends JpaRepository<WeeklyReport, Long> {
+/** Filtreli sorgular icin bkz. {@code repository.spec.WeeklyReportSpecifications} (T13). */
+public interface WeeklyReportRepository extends JpaRepository<WeeklyReport, Long>,
+        JpaSpecificationExecutor<WeeklyReport> {
 
     /** Bir projenin tum haftalik raporlari. */
     List<WeeklyReport> findByProjectId(Long projectId);
