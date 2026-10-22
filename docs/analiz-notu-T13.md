@@ -40,7 +40,7 @@ T13 bu soruların her birine tek bir istekle cevap verebilmeyi hedefliyor.
 | Filtre | Anlamı | Nerede uygulanır |
 |---|---|---|
 | **Proje** | Belirli bir proje | Dashboard, rapor listesi, iş kalemi listesi |
-| **Hafta** | Dashboard'da "X. hafta itibarıyla portföy": her proje için hafta numarası ≤ X olan en son rapor esas alınır. Rapor listesinde hafta aralığı veya rapor tarihi aralığı. | Dashboard, rapor listesi |
+| **Hafta** | Dashboard'da "X. hafta itibarıyla portföy": her proje için hafta numarası ≤ X olan en son rapor esas alınır. İş kalemi listesi de aynı referansı kullanır (filtre sözleşmesi, S-05). Rapor listesinde hafta aralığı veya rapor tarihi aralığı. | Dashboard, rapor listesi, iş kalemi listesi |
 | **Durum** | Sistemde üç ayrı durum kavramı var, karıştırılmamalı: projenin durumu (`ProjectStatus`), raporun genel durumu (`OverallStatus`), iş kaleminin durumu (`WorkItemStatus`) | Proje durumu ve rapor durumu: dashboard ve rapor listesi. İş kalemi durumu: iş kalemi listesi |
 | **Risk** | Raporun risk seviyesi (dashboard'da en son veya seçilen haftanın raporu) | Dashboard, rapor listesi |
 | **Sorumlu** | Dashboard ve raporlarda projenin sorumlu proje yöneticisi (`owner`). İş kalemlerinde `assignee` alanı (serbest metin). | Hepsi |

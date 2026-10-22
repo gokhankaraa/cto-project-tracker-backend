@@ -1,0 +1,244 @@
+# T13 — Filtre Sözleşmesi (API)
+
+**Staj yönü:** Backend (Java + Spring Boot)
+**Task:** T13, 21. gün — filtre sözleşmesi ve parametreler
+**Hazırlayan:** Gökhan Kara
+**Tarih:** 22 Ekim 2026
+**Dayandığı doküman:** [analiz-notu-T13.md](analiz-notu-T13.md) (K-T13-xx kararları ve KK-xx kabul kriterleri oradadır)
+
+Bu doküman üç endpoint'in filtre parametrelerini, doğrulama kurallarını, yanıt yapısını ve hata
+davranışını tanımlar. 22–24. günlerdeki geliştirme ve testler bu sözleşmeye göre yapılacak.
+
+---
+
+## 1. Ortak kurallar
+
+| Kural | Açıklama |
+|---|---|
+| Birleştirme | Farklı parametreler **VE** ile birleşir. Çok değerli parametrelerde değerler **VEYA** ile birleşir (K-T13-02). |
+| Çok değerli parametre | Virgülle (`riskLevel=ORTA,YUKSEK`) veya tekrarla (`riskLevel=ORTA&riskLevel=YUKSEK`) verilebilir. Tabloda "çoklu" olarak işaretlenmiştir. |
+| Verilmeyen parametre | Filtre uygulanmaz. Hiç parametre verilmezse mevcut davranış korunur (K-T13-03). |
+| Boş değer | `?ownerId=` gibi boş verilen parametre, verilmemiş sayılır. |
+| Enum değerleri | Büyük harf ve koddaki adıyla yazılır (`YUKSEK`, `DEVAM_EDIYOR`). |
+| Tarih biçimi | ISO 8601, `yyyy-MM-dd` (ör. `2026-07-27`) |
+| Hafta numarası | 1–53 (rapor oluştururken kullanılan kuralla aynı) |
+| Var olmayan id | Hata dönmez, boş sonuç döner (K-T13-07). |
+| Gecikme | Analiz notundaki K-T13-01 tanımı kullanılır. Hesaplama tek bir yerde yapılır, üç endpoint de aynı kuralı kullanır. |
+
+**Değerlendirilen rapor:** Dashboard ve iş kalemi listesi her proje için tek bir raporu esas alır:
+
+- `weekNumber` verilmezse projenin **en son** raporu (en yüksek hafta numarası; bugünkü davranış),
+- `weekNumber=X` verilirse projenin hafta numarası **≤ X olan en son** raporu (K-T13-05).
+
+---
+
+## 2. `GET /api/dashboard/summary` (mevcut endpoint, genişletilir)
+
+### Parametreler
+
+| Parametre | Tip | Çoklu | Doğrulama | Neye uygulanır |
+|---|---|---|---|---|
+| `projectId` | Long | — | — | Proje |
+| `projectStatus` | `ProjectStatus` | ✓ | Tanımlı enum | Proje |
+| `ownerId` | Long | — | — | Proje (sorumlu PM) |
+| `weekNumber` | Integer | — | 1–53 | Referans hafta (değerlendirilen rapor) |
+| `overallStatus` | `OverallStatus` | ✓ | Tanımlı enum | Değerlendirilen rapor |
+| `riskLevel` | `RiskLevel` | ✓ | Tanımlı enum | Değerlendirilen rapor (mevcut parametre) |
+| `delayed` | Boolean | — | `true` / `false` | Değerlendirilen rapor: `true` yalnızca gecikenler, `false` yalnızca gecikmeyenler |
+
+- Proje parametreleri (`projectId`, `projectStatus`, `ownerId`) raporu olmayan projeleri de döndürür.
+  Rapor parametreleri (`overallStatus`, `riskLevel`, `delayed`) verildiğinde bu projeler listelenmez (K-T13-04).
+- `weekNumber` tek başına hiçbir projeyi elemez. X. haftaya kadar raporu olmayan projeler `hasReport=false` ile döner.
+- Sayfalama yoktur (K-T13-08). Sıralama bugünkü gibi proje id'sine göre artan.
+
+### Yanıt: mevcut alanlar aynen kalır, yeni alanlar eklenir
+
+| Nesne | Yeni alan | Tip | Açıklama |
+|---|---|---|---|
+| `DashboardSummaryResponse` | `delayedProjects` | long | Filtrelenmiş kümedeki geciken proje sayısı |
+| `DashboardProjectSummary` | `delayed` | boolean | Değerlendirilen rapora göre proje gecikmede mi (raporu yoksa `false`) |
+
+Mevcut alanlarda değişiklik yok: `lastWeekNumber`, `weekNumber` verildiğinde değerlendirilen
+raporun haftasını gösterir. Sayaçlar filtrelenmiş kümeye göre hesaplanır (K-T13-06).
+
+### Örnekler (seed verisi)
+
+| İstek | Sonuç |
+|---|---|
+| `GET /api/dashboard/summary` | 3 proje, bugünkü yanıtın aynısı ve `delayedProjects: 0` (KK-01) |
+| `?riskLevel=YUKSEK` | Yalnızca e-Donusum (mevcut davranış) |
+| `?riskLevel=ORTA,YUKSEK` | Yalnızca e-Donusum (KK-02) |
+| `?weekNumber=29` | PEYK hafta 29 değerleriyle (`ORTA`, `GELISTIRME`); e-Donusum ve EczaciPOS `hasReport=false` (KK-03) |
+| `?ownerId=1` | PEYK ve EczaciPOS, `totalProjects: 2` (KK-04) |
+| `?ownerId=1&riskLevel=YUKSEK` | Boş liste, tüm sayaçlar 0, `200` (KK-05) |
+
+---
+
+## 3. `GET /api/reports` (yeni endpoint)
+
+Tüm projelerin haftalık raporlarını filtreli ve sayfalı listeler. Projeye bağlı mevcut
+`GET /api/projects/{projectId}/reports` endpoint'i değişmez.
+
+### Parametreler
+
+| Parametre | Tip | Çoklu | Doğrulama |
+|---|---|---|---|
+| `projectId` | Long | — | — |
+| `ownerId` | Long | — | — |
+| `weekFrom` | Integer | — | 1–53 |
+| `weekTo` | Integer | — | 1–53, `weekFrom` ≤ `weekTo` |
+| `dateFrom` | LocalDate | — | ISO tarih |
+| `dateTo` | LocalDate | — | ISO tarih, `dateFrom` ≤ `dateTo` |
+| `overallStatus` | `OverallStatus` | ✓ | Tanımlı enum |
+| `riskLevel` | `RiskLevel` | ✓ | Tanımlı enum |
+| `progressStage` | `ProgressStage` | ✓ | Tanımlı enum |
+| `page` | Integer | — | ≥ 0, varsayılan `0` |
+| `size` | Integer | — | 1–100, varsayılan `20` |
+| `sort` | String | — | `alan` veya `alan,asc` / `alan,desc`. Varsayılan `reportDate,desc` |
+
+- Aralık uçları dahildir: `weekFrom=29&weekTo=30` → 29 ve 30.
+- Sıralanabilir alanlar: `reportDate`, `weekNumber`, `projectName`. Sayfalar arası kayma olmaması
+  için sıralamaya her zaman ikinci anahtar olarak `id` eklenir.
+
+### Yanıt: sayfa yapısı
+
+```json
+{
+  "content": [ { "...": "WeeklyReportResponse" } ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 3,
+  "totalPages": 1
+}
+```
+
+`WeeklyReportResponse` aynen kullanılır, tek ek alan `projectName` (String). Projeler arası
+listede raporun hangi projeye ait olduğu id'ye bakmadan görünsün diye eklenir. Ek alan diğer
+rapor endpoint'lerinin yanıtında da yer alır.
+
+### Örnekler (seed verisi)
+
+| İstek | Sonuç |
+|---|---|
+| `GET /api/reports` | 3 rapor, en yeni üstte: hafta 30 (PEYK ve e-Donusum, kendi aralarında id'ye göre), sonra hafta 29 |
+| `?projectId=1&weekFrom=29&weekTo=29` | PEYK hafta 29 |
+| `?riskLevel=YUKSEK&ownerId=2` | e-Donusum hafta 30 |
+| `?size=2` | 2 kayıt, `totalElements: 3`, `totalPages: 2` |
+| `?page=5` | `content: []`, `totalElements: 3` (`200`) |
+
+---
+
+## 4. `GET /api/work-items` (yeni endpoint)
+
+İş kalemlerini projeler arası filtreli ve sayfalı listeler. Varsayılan olarak her projenin
+**değerlendirilen raporundaki** iş kalemleri listelenir (bkz. S-05). Rapora bağlı mevcut
+`GET /api/reports/{reportId}/work-items` endpoint'i değişmez.
+
+### Parametreler
+
+| Parametre | Tip | Çoklu | Doğrulama |
+|---|---|---|---|
+| `projectId` | Long | — | — |
+| `weekNumber` | Integer | — | 1–53 (değerlendirilen rapor; bkz. bölüm 1) |
+| `assignee` | String | — | En fazla 255 karakter. Büyük/küçük harfe duyarsız, "içerir" araması (K-T13-09) |
+| `status` | `WorkItemStatus` | ✓ | Tanımlı enum |
+| `delayed` | Boolean | — | `true` / `false` |
+| `page` | Integer | — | ≥ 0, varsayılan `0` |
+| `size` | Integer | — | 1–100, varsayılan `20` |
+| `sort` | String | — | Varsayılan `plannedDate,asc` (planlanan tarihi olmayanlar sonda) |
+
+- Sıralanabilir alanlar: `plannedDate`, `title`, `projectName`. İkinci anahtar her zaman `id`.
+
+### Yanıt
+
+Bölüm 3'teki sayfa yapısı kullanılır, `content` elemanları `WorkItemResponse` olur. Eklenen alanlar:
+
+| Yeni alan | Tip | Açıklama |
+|---|---|---|
+| `projectId` | Long | İş kaleminin projesi |
+| `projectName` | String | Proje adı |
+| `weekNumber` | Integer | Bağlı olduğu raporun haftası |
+| `delayed` | boolean | K-T13-01'e göre gecikmiş mi |
+
+### Örnekler (seed verisi, gecikme demo verisi eklenmeden önce)
+
+| İstek | Sonuç |
+|---|---|
+| `GET /api/work-items` | e-Donusum hafta 30'un 1 iş kalemi. PEYK'in son raporunda (hafta 30) iş kalemi yok, EczaciPOS'un raporu yok. |
+| `?weekNumber=29` | PEYK hafta 29'un 3 iş kalemi |
+| `?weekNumber=29&assignee=mehmet` | "Dashboard ozeti" |
+| `?status=DEVAM_EDIYOR` | "Mevzuat analizi" |
+
+---
+
+## 5. Hata davranışı
+
+Tüm hatalar mevcut `ApiError` gövdesiyle döner, yeni hata kodu eklenmez.
+
+| Durum | Örnek | HTTP | `code` | `fieldErrors` |
+|---|---|---|---|---|
+| Tanımsız enum değeri | `riskLevel=COK_YUKSEK` | 400 | `INVALID_REQUEST` | — (mesajda parametre adı geçer) |
+| Tip uyuşmazlığı | `projectId=abc`, `delayed=evet`, `dateFrom=27.07.2026` | 400 | `INVALID_REQUEST` | — |
+| Aralık dışı değer | `weekNumber=54`, `size=0`, `size=500`, `page=-1` | 400 | `VALIDATION_ERROR` | ilgili parametre |
+| Ters aralık | `weekFrom=30&weekTo=29`, `dateFrom` > `dateTo` | 400 | `VALIDATION_ERROR` | `weekTo` / `dateTo` |
+| Uzun metin | `assignee` > 255 karakter | 400 | `VALIDATION_ERROR` | `assignee` |
+| Geçersiz sıralama | `sort=password`, `sort=reportDate,yukari` | 400 | `VALIDATION_ERROR` | `sort` (mesajda izin verilen alanlar listelenir) |
+| Sonuç yok | — | 200 | — | — |
+
+**Bilinen davranış:** Tanımsız parametre adları (ör. `?risk=YUKSEK`) Spring'in standart davranışı
+gereği yok sayılır ve filtresiz sonuç döner. Bu davranış README'de belirtilecek (analiz notu, açık soru 3).
+
+---
+
+## 6. Sözleşme düzeyindeki teknik kararlar
+
+| No | Karar | Gerekçe |
+|---|---|---|
+| S-01 | Filtre parametreleri controller'da tek tek `@RequestParam` olarak alınır, servis katmanına bir filtre kaydı (record) olarak geçirilir. | Parametreleri doğrudan bir nesneye bağlamak (`@ModelAttribute`) tip hatalarını farklı bir istisna yolundan geçirir. Bu durumda mevcut testlerdeki `400 INVALID_REQUEST` davranışı değişir ve hata mesajına teknik dönüşüm metni sızabilir. |
+| S-02 | Sayfalı yanıt için kendi `PageResponse<T>` kaydımızı kullanırız. Spring'in `Page` nesnesi doğrudan döndürülmez. | `Page` nesnesinin JSON yapısı Spring sürümüne bağlıdır (Spring Data bu kullanım için uyarı da basar). Kendi kaydımızla sözleşme sabit kalır. |
+| S-03 | Sıralama alanları bir izin listesiyle sınırlanır ve API alan adı entity yoluna eşlenir (`projectName` → `project.name`). | Entity alan adları dışarı sızmaz. Tanımsız alan, Spring Data'dan istisna olarak çıkıp `500`'e düşmek yerine `400` döner. |
+| S-04 | Fazla büyük `size` sessizce kırpılmaz, `400` döner. | Spring'in varsayılan sayfalama çözücüsü büyük değerleri sessizce kırpar. İstemcinin istediğinden az kayıt aldığını fark etmemesi yanıltıcı olur. |
+| S-05 | İş kalemi listesi her projenin değerlendirilen raporuna göre çalışır, tüm haftalarınkini birden listelemez. | İş kalemleri haftalık raporun parçası olduğu için devam eden bir iş her hafta yeniden girilebilir. Tüm haftalar listelenirse aynı iş birden çok kez görünür ve 29. haftada gecikip 30. haftada tamamlanan bir iş hâlâ "gecikmiş" olarak çıkar. |
+| S-06 | Yanıtlara yalnızca alan eklenir; mevcut alanlar kaldırılmaz, adı ya da anlamı değişmez. | Mevcut istemciler ve testler etkilenmez. |
+
+---
+
+## 7. Uygulama yaklaşımı (22–23. gün için)
+
+- **Proje koşulları** (`projectId`, `projectStatus`, `ownerId`) `Specification<Project>` olarak
+  kurulur. Dashboard proje kümesini bu sorguyla alır.
+- **Dashboard:** her proje için değerlendirilen rapor bulunur. Rapora dayalı filtreler (risk,
+  rapor durumu, gecikme) bugünkü gibi özet satırları üzerinde uygulanır, çünkü proje sayısı küçük.
+- **Rapor listesi:** `WeeklyReportRepository` `JpaSpecificationExecutor` ile genişletilir. Her
+  parametre ayrı ve küçük bir `Specification` olur, verilen parametreler VE ile birleştirilir.
+- **İş kalemi listesi:** `Specification<WorkItem>`. Değerlendirilen rapor koşulu bir alt
+  sorguyla kurulur (projenin hafta ≤ X olan en yüksek haftalı raporu), gecikme koşulu iş kaleminin
+  planlanan tarihi ile raporun tarihi karşılaştırılarak yazılır.
+- **Gecikme kuralı** tek bir sınıfta toplanır. Dashboard satırı, iş kalemi yanıtı ve sorgu
+  koşulu aynı tanımı kullanır.
+- **Örnek veri:** gecikme filtresini gösterebilmek için seed'e planlanan tarihli ve `GECIKTI`
+  durumunda iş kalemleri eklenir.
+
+## 8. Yetkilendirmeye (T14) hazırlık
+
+T14'te kimlik doğrulama geldiğinde rol kısıtı, kullanıcının filtrelerinden **önce** gelen ve
+her zaman uygulanan bir koşul olarak eklenecek:
+
+| Rol | Görünürlük koşulu |
+|---|---|
+| CTO, Admin | Koşul yok (tüm projeler) |
+| Proje yöneticisi | `project.owner = oturumdaki kullanıcı` |
+
+Bu koşul üç endpoint'te de proje `Specification`'ına VE ile eklenir. Bu yüzden T13'teki filtre
+kodunun değişmesi gerekmez. Bir proje yöneticisi `?ownerId=` ile başkasının projelerini
+istediğinde sonuç boş döner, hata dönmez (K-T13-07).
+
+## 9. Test eşlemesi (24. gün)
+
+| Test | Kapsam |
+|---|---|
+| `DashboardServiceTest` (genişletilir) | Her filtre tek başına ve birlikte, hafta referansı, gecikme kuralı, sayaçlar |
+| `WeeklyReportQueryTest` (yeni, `@DataJpaTest`) | Rapor `Specification`'ları, aralık uçları, sıralama ve ikinci anahtar |
+| `WorkItemQueryTest` (yeni, `@DataJpaTest`) | Değerlendirilen rapor alt sorgusu, `assignee` araması, gecikme koşulu |
+| `FilterIntegrationTest` (yeni, MockMvc) | Bölüm 2–4'teki örnekler ve bölüm 5'teki her hata satırı |
+| Test senaryoları xlsx | T13 senaryoları mevcut ID düzenine göre eklenir |
