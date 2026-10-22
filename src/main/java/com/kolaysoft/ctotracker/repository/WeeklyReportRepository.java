@@ -21,6 +21,10 @@ public interface WeeklyReportRepository extends JpaRepository<WeeklyReport, Long
     /** Projenin en guncel raporu: en yuksek hafta numarasina sahip olan (dashboard icin). */
     Optional<WeeklyReport> findTopByProjectIdOrderByWeekNumberDesc(Long projectId);
 
+    /** Projenin verilen haftaya kadarki (dahil) en son raporu: dashboard'da referans hafta icin (T13). */
+    Optional<WeeklyReport> findTopByProjectIdAndWeekNumberLessThanEqualOrderByWeekNumberDesc(
+            Long projectId, Integer weekNumber);
+
     /** Proje + hafta benzersizlik kontrolu icin (on analiz H-03). */
     boolean existsByProjectIdAndWeekNumber(Long projectId, Integer weekNumber);
 }

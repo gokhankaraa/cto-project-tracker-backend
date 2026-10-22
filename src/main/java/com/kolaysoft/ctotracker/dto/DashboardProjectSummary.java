@@ -9,8 +9,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
  * CTO dashboard'unda tek bir projenin ozet satiri (on analiz H-06).
- * Ilerleme/durum/risk bilgileri projenin EN GUNCEL haftalik raporundan (en yuksek hafta) turer.
- * Projenin hic raporu yoksa {@code hasReport=false} ve rapora bagli alanlar null/0 doner.
+ * Ilerleme/durum/risk bilgileri projenin DEGERLENDIRILEN raporundan turer: referans hafta verilmezse
+ * en guncel rapor (en yuksek hafta), verilirse o haftaya kadarki en son rapor (T13 filtre sozlesmesi).
+ * Boyle bir rapor yoksa {@code hasReport=false} ve rapora bagli alanlar null/0/false doner.
  */
 @Schema(description = "CTO dashboard proje ozet satiri")
 public record DashboardProjectSummary(
@@ -30,7 +31,8 @@ public record DashboardProjectSummary(
         @Schema(description = "Projenin genel durumu", example = "DEVAM_EDIYOR")
         ProjectStatus projectStatus,
 
-        @Schema(description = "Projenin hic haftalik raporu var mi", example = "true")
+        @Schema(description = "Projenin degerlendirilen raporu var mi (referans hafta verilmisse o haftaya kadar)",
+                example = "true")
         boolean hasReport,
 
         @Schema(description = "Son raporun hafta numarasi (rapor yoksa null)", example = "30")
@@ -49,5 +51,9 @@ public record DashboardProjectSummary(
         RiskLevel riskLevel,
 
         @Schema(description = "Son rapordaki canli task sayisi (DEVAM_EDIYOR is kalemleri)", example = "2")
-        long liveTaskCount) {
+        long liveTaskCount,
+
+        @Schema(description = "Proje gecikmede mi: rapor durumu GECIKMELI ya da raporda gecikmis is kalemi var "
+                + "(T13 analiz notu K-T13-01); rapor yoksa false", example = "false")
+        boolean delayed) {
 }

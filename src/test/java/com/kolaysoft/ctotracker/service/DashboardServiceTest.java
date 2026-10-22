@@ -16,8 +16,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 
 import com.kolaysoft.ctotracker.dto.DashboardSummaryResponse;
+import com.kolaysoft.ctotracker.dto.filter.DashboardFilter;
 import com.kolaysoft.ctotracker.entity.OverallStatus;
 import com.kolaysoft.ctotracker.entity.ProgressStage;
 import com.kolaysoft.ctotracker.entity.Project;
@@ -42,8 +45,16 @@ class DashboardServiceTest {
     @Mock
     private WorkItemRepository workItemRepository;
 
+    @Mock
+    private DelayPolicy delayPolicy;
+
     @InjectMocks
     private DashboardService service;
+
+    /** Proje sorgusu artik filtre kosuluyla (Specification) ve id sirasiyla cagriliyor (T13). */
+    private static Specification<Project> anySpec() {
+        return any();
+    }
 
     private Project project(Long id, String name, RiskLevel ignored) {
         Project p = new Project();
@@ -73,7 +84,7 @@ class DashboardServiceTest {
     void summaryIncludesReportedAndUnreportedProjects() {
         Project peyk = project(1L, "PEYK", null);
         Project bos = project(2L, "Raporsuz", null);
-        when(projectRepository.findAll()).thenReturn(List.of(peyk, bos));
+        when(projectRepository.findAll(anySpec(), any(Sort.class))).thenReturn(List.of(peyk, bos));
 
         WeeklyReport peykLast = report(10L, 1L, 30, ProgressStage.TEST, RiskLevel.YUKSEK);
         when(weeklyReportRepository.findTopByProjectIdOrderByWeekNumberDesc(1L))
@@ -83,7 +94,7 @@ class DashboardServiceTest {
         when(workItemRepository.countByWeeklyReportIdAndStatus(10L, WorkItemStatus.DEVAM_EDIYOR))
                 .thenReturn(2L);
 
-        DashboardSummaryResponse summary = service.getSummary(null);
+        DashboardSummaryResponse summary = service.getSummary(DashboardFilter.none());
 
         assertThat(summary.totalProjects()).isEqualTo(2);
         assertThat(summary.highRiskProjects()).isEqualTo(1);
@@ -109,7 +120,7 @@ class DashboardServiceTest {
     void riskFilterReturnsOnlyMatchingProjects() {
         Project peyk = project(1L, "PEYK", null);
         Project edonusum = project(2L, "e-Donusum", null);
-        when(projectRepository.findAll()).thenReturn(List.of(peyk, edonusum));
+        when(projectRepository.findAll(anySpec(), any(Sort.class))).thenReturn(List.of(peyk, edonusum));
 
         WeeklyReport peykLast = report(10L, 1L, 30, ProgressStage.TEST, RiskLevel.DUSUK);
         WeeklyReport edonusumLast = report(20L, 2L, 30, ProgressStage.ANALIZ, RiskLevel.YUKSEK);
@@ -120,7 +131,8 @@ class DashboardServiceTest {
         lenient().when(workItemRepository.countByWeeklyReportIdAndStatus(any(), eq(WorkItemStatus.DEVAM_EDIYOR)))
                 .thenReturn(0L);
 
-        DashboardSummaryResponse summary = service.getSummary(RiskLevel.YUKSEK);
+        DashboardSummaryResponse summary = service.getSummary(
+                new DashboardFilter(null, null, null, null, null, List.of(RiskLevel.YUKSEK), null));
 
         assertThat(summary.projects()).hasSize(1);
         assertThat(summary.projects().get(0).projectId()).isEqualTo(2L);
@@ -130,9 +142,9 @@ class DashboardServiceTest {
     @Test
     @DisplayName("Bos portfoy: proje yoksa sayaclar sifir, liste bos")
     void emptyPortfolioReturnsZeroes() {
-        when(projectRepository.findAll()).thenReturn(List.of());
+        when(projectRepository.findAll(anySpec(), any(Sort.class))).thenReturn(List.of());
 
-        DashboardSummaryResponse summary = service.getSummary(null);
+        DashboardSummaryResponse summary = service.getSummary(DashboardFilter.none());
 
         assertThat(summary.totalProjects()).isZero();
         assertThat(summary.projects()).isEmpty();
