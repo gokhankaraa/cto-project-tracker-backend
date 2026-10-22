@@ -17,6 +17,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.kolaysoft.ctotracker.common.exception.BusinessRuleException;
 import com.kolaysoft.ctotracker.common.exception.DuplicateResourceException;
+import com.kolaysoft.ctotracker.common.exception.InvalidParameterException;
 import com.kolaysoft.ctotracker.common.exception.ResourceInUseException;
 import com.kolaysoft.ctotracker.common.exception.ResourceNotFoundException;
 
@@ -56,6 +57,15 @@ public class GlobalExceptionHandler {
 
         return build(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_ERROR,
                 "Gonderilen parametreler dogrulama kurallarina uymuyor.", request, fieldErrors);
+    }
+
+    /** Birlikte gecersiz parametreler: ters aralik (weekFrom > weekTo), tanimsiz siralama alani. */
+    @ExceptionHandler(InvalidParameterException.class)
+    public ResponseEntity<ApiError> handleInvalidParameter(InvalidParameterException ex,
+                                                           HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_ERROR,
+                "Gonderilen parametreler dogrulama kurallarina uymuyor.", request,
+                List.of(new ApiFieldError(ex.getParameter(), ex.getMessage())));
     }
 
     /** Bozuk JSON, tanimsiz enum degeri veya hatali tarih formati. */

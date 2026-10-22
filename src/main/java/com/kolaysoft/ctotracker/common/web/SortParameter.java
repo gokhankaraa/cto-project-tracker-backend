@@ -1,0 +1,61 @@
+package com.kolaysoft.ctotracker.common.web;
+
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.springframework.data.domain.Sort;
+
+import com.kolaysoft.ctotracker.common.exception.InvalidParameterException;
+
+/**
+ * {@code sort} sorgu parametresini cozer (T13 filtre sozlesmesi, bolum 3-4 ve S-03).
+ *
+ * <p>Bicim: {@code alan}, {@code alan,asc} veya {@code alan,desc} (yon verilmezse artan). Yalnizca izin
+ * listesindeki API alan adlari kabul edilir ve entity yoluna eslenir (or. {@code projectName -> project.name}).
+ * Boylece entity alan adlari disari sizmaz ve tanimsiz bir alan Spring Data'dan istisna olarak cikip
+ * 500'e dusmek yerine 400 doner. Sayfalar arasi kayma olmasin diye siralamaya her zaman ayni yonde
+ * ikinci anahtar olarak {@code id} eklenir.
+ */
+public final class SortParameter {
+
+    private static final String PARAMETER = "sort";
+
+    private SortParameter() {
+    }
+
+    /**
+     * @param value        istemcinin gonderdigi deger; null veya bos ise {@code defaultValue} kullanilir
+     * @param allowed      API alan adi -&gt; entity yolu
+     * @param defaultValue varsayilan siralama, ayni bicimde (or. {@code "reportDate,desc"})
+     * @throws InvalidParameterException bicim, alan veya yon gecersizse
+     */
+    public static Sort parse(String value, Map<String, String> allowed, String defaultValue) {
+        String effective = value == null || value.isBlank() ? defaultValue : value.strip();
+        String[] parts = effective.split(",", -1);
+        if (parts.length > 2) {
+            throw invalid(effective, allowed);
+        }
+
+        String path = allowed.get(parts[0].strip());
+        if (path == null) {
+            throw invalid(effective, allowed);
+        }
+
+        Sort.Direction direction = parts.length == 1
+                ? Sort.Direction.ASC
+                : Sort.Direction.fromOptionalString(parts[1].strip())
+                        .orElseThrow(() -> invalid(effective, allowed));
+
+        // ignoreCase: metin alanlari (or. projectName) buyuk/kucuk harfe duyarsiz siralanir; aksi halde H2
+        // "PEYK"i "e-Donusum"dan once getirir ve sonuc veritabanina gore degisir. Spring Data bunu yalnizca
+        // String tipindeki alanlara uygular; tarih/sayi alanlari etkilenmez.
+        return Sort.by(new Sort.Order(direction, path).ignoreCase(), new Sort.Order(direction, "id"));
+    }
+
+    private static InvalidParameterException invalid(String value, Map<String, String> allowed) {
+        String fields = allowed.keySet().stream().sorted().collect(Collectors.joining(", "));
+        return new InvalidParameterException(PARAMETER,
+                "Gecersiz siralama: '%s'. Bicim 'alan' veya 'alan,asc|desc' olmalidir; izin verilen alanlar: %s."
+                        .formatted(value, fields));
+    }
+}

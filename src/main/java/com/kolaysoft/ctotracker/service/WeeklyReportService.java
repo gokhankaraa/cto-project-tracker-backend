@@ -1,15 +1,22 @@
 package com.kolaysoft.ctotracker.service;
 
 import java.util.List;
+import java.util.Map;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.kolaysoft.ctotracker.common.exception.BusinessRuleException;
 import com.kolaysoft.ctotracker.common.exception.DuplicateResourceException;
+import com.kolaysoft.ctotracker.common.exception.InvalidParameterException;
 import com.kolaysoft.ctotracker.common.exception.ResourceNotFoundException;
+import com.kolaysoft.ctotracker.common.web.SortParameter;
+import com.kolaysoft.ctotracker.dto.PageResponse;
 import com.kolaysoft.ctotracker.dto.WeeklyReportRequest;
 import com.kolaysoft.ctotracker.dto.WeeklyReportResponse;
+import com.kolaysoft.ctotracker.dto.filter.ReportFilter;
 import com.kolaysoft.ctotracker.entity.ProgressStage;
 import com.kolaysoft.ctotracker.entity.Project;
 import com.kolaysoft.ctotracker.entity.WeeklyReport;
@@ -17,6 +24,7 @@ import com.kolaysoft.ctotracker.entity.WorkItemStatus;
 import com.kolaysoft.ctotracker.repository.ProjectRepository;
 import com.kolaysoft.ctotracker.repository.WeeklyReportRepository;
 import com.kolaysoft.ctotracker.repository.WorkItemRepository;
+import com.kolaysoft.ctotracker.repository.spec.WeeklyReportSpecifications;
 
 /**
  * Haftalik rapor CRUD is mantigi ve is kurallari (on analiz H-03/H-04/H-05).
@@ -34,6 +42,15 @@ import com.kolaysoft.ctotracker.repository.WorkItemRepository;
 @Service
 @Transactional
 public class WeeklyReportService {
+
+    /** Rapor listesinde siralanabilir alanlar: API alan adi -> entity yolu (filtre sozlesmesi, S-03). */
+    private static final Map<String, String> SORT_FIELDS = Map.of(
+            "reportDate", "reportDate",
+            "weekNumber", "weekNumber",
+            "projectName", "project.name");
+
+    /** Varsayilan siralama: en yeni rapor en ustte. */
+    private static final String DEFAULT_SORT = "reportDate,desc";
 
     private final WeeklyReportRepository weeklyReportRepository;
     private final ProjectRepository projectRepository;
@@ -57,6 +74,20 @@ public class WeeklyReportService {
     @Transactional(readOnly = true)
     public WeeklyReportResponse findById(Long reportId) {
         return toResponse(getReportOrThrow(reportId));
+    }
+
+    /**
+     * Projeler arasi filtreli ve sayfali rapor listesi (T13 filtre sozlesmesi, bolum 3).
+     *
+     * @param sort {@code alan} veya {@code alan,asc|desc}; null ise {@code reportDate,desc}
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<WeeklyReportResponse> search(ReportFilter filter, int page, int size, String sort) {
+        validateRanges(filter);
+        Pageable pageable = PageRequest.of(page, size, SortParameter.parse(sort, SORT_FIELDS, DEFAULT_SORT));
+        return PageResponse.of(
+                weeklyReportRepository.findAll(WeeklyReportSpecifications.matching(filter), pageable),
+                this::toResponse);
     }
 
     public WeeklyReportResponse create(Long projectId, WeeklyReportRequest request) {
@@ -95,6 +126,18 @@ public class WeeklyReportService {
             throw new ResourceNotFoundException("Haftalik rapor", reportId);
         }
         weeklyReportRepository.deleteById(reportId);
+    }
+
+    /** Ters araliklar 400 doner; hata araligin bitis parametresinde raporlanir (filtre sozlesmesi, bolum 5). */
+    private void validateRanges(ReportFilter filter) {
+        if (filter.weekFrom() != null && filter.weekTo() != null && filter.weekFrom() > filter.weekTo()) {
+            throw new InvalidParameterException("weekTo",
+                    "Bitis haftasi (weekTo) baslangic haftasindan (weekFrom) kucuk olamaz.");
+        }
+        if (filter.dateFrom() != null && filter.dateTo() != null && filter.dateFrom().isAfter(filter.dateTo())) {
+            throw new InvalidParameterException("dateTo",
+                    "Bitis tarihi (dateTo) baslangic tarihinden (dateFrom) once olamaz.");
+        }
     }
 
     /** Kademe ayni kalabilir ya da tam bir adim ilerleyebilir; geriye/atlayarak gecis reddedilir. */
@@ -141,6 +184,7 @@ public class WeeklyReportService {
         return new WeeklyReportResponse(
                 r.getId(),
                 r.getProject().getId(),
+                r.getProject().getName(),
                 r.getWeekNumber(),
                 r.getReportDate(),
                 r.getProgressStage(),

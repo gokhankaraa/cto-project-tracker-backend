@@ -21,6 +21,10 @@ public record WeeklyReportResponse(
         @Schema(description = "Bagli oldugu proje id'si", example = "1")
         Long projectId,
 
+        @Schema(description = "Bagli oldugu projenin adi (projeler arasi listede okunabilirlik icin, T13)",
+                example = "PEYK")
+        String projectName,
+
         @Schema(description = "Hafta numarasi", example = "30")
         Integer weekNumber,
 

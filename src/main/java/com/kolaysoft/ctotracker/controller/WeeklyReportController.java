@@ -1,7 +1,9 @@
 package com.kolaysoft.ctotracker.controller;
 
+import java.time.LocalDate;
 import java.util.List;
 
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -11,20 +13,30 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.kolaysoft.ctotracker.dto.PageResponse;
 import com.kolaysoft.ctotracker.dto.WeeklyReportRequest;
 import com.kolaysoft.ctotracker.dto.WeeklyReportResponse;
+import com.kolaysoft.ctotracker.dto.filter.ReportFilter;
+import com.kolaysoft.ctotracker.entity.OverallStatus;
+import com.kolaysoft.ctotracker.entity.ProgressStage;
+import com.kolaysoft.ctotracker.entity.RiskLevel;
 import com.kolaysoft.ctotracker.service.WeeklyReportService;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 
 /**
  * Haftalik rapor endpoint'leri. Olusturma/listeleme proje altindan
  * ({@code /api/projects/{projectId}/reports}); tekil islemler rapor id'si uzerinden
- * ({@code /api/reports/{id}}) yapilir (on analiz, bolum 5).
+ * ({@code /api/reports/{id}}) yapilir (on analiz, bolum 5). Projeler arasi filtreli ve sayfali
+ * liste {@code GET /api/reports} uzerindendir (T13 filtre sozlesmesi, bolum 3).
  */
 @Tag(name = "WeeklyReport", description = "Haftalik rapor yonetimi")
 @RestController
@@ -48,6 +60,61 @@ public class WeeklyReportController {
     public ResponseEntity<WeeklyReportResponse> create(@PathVariable Long projectId,
                                                        @Valid @RequestBody WeeklyReportRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(weeklyReportService.create(projectId, request));
+    }
+
+    @Operation(summary = "Haftalik raporlari projeler arasi filtreli ve sayfali listele",
+            description = "Farkli filtreler VE ile, cok degerli bir parametrenin degerleri VEYA ile birlesir. "
+                    + "Aralik uclari dahildir. Varsayilan siralama: en yeni rapor en ustte (reportDate,desc).")
+    @GetMapping(value = "/api/reports", produces = MediaType.APPLICATION_JSON_VALUE)
+    public PageResponse<WeeklyReportResponse> search(
+            @Parameter(description = "Yalnizca bu proje", example = "1")
+            @RequestParam(required = false) Long projectId,
+
+            @Parameter(description = "Sorumlu proje yoneticisinin kullanici id'si", example = "1")
+            @RequestParam(required = false) Long ownerId,
+
+            @Parameter(description = "Baslangic haftasi (dahil, 1-53)", example = "29")
+            @RequestParam(required = false)
+            @Min(value = 1, message = "Hafta numarasi en az 1 olmalidir.")
+            @Max(value = 53, message = "Hafta numarasi en fazla 53 olmalidir.") Integer weekFrom,
+
+            @Parameter(description = "Bitis haftasi (dahil, 1-53); weekFrom'dan kucuk olamaz", example = "30")
+            @RequestParam(required = false)
+            @Min(value = 1, message = "Hafta numarasi en az 1 olmalidir.")
+            @Max(value = 53, message = "Hafta numarasi en fazla 53 olmalidir.") Integer weekTo,
+
+            @Parameter(description = "Baslangic rapor tarihi (dahil, yyyy-MM-dd)", example = "2026-07-20")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+
+            @Parameter(description = "Bitis rapor tarihi (dahil, yyyy-MM-dd); dateFrom'dan once olamaz",
+                    example = "2026-07-31")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+
+            @Parameter(description = "Raporun genel durumu; birden cok deger virgulle verilebilir", example = "RISKLI")
+            @RequestParam(required = false) List<OverallStatus> overallStatus,
+
+            @Parameter(description = "Risk seviyesi; birden cok deger virgulle verilebilir", example = "ORTA,YUKSEK")
+            @RequestParam(required = false) List<RiskLevel> riskLevel,
+
+            @Parameter(description = "Ilerleme kademesi; birden cok deger virgulle verilebilir", example = "TEST")
+            @RequestParam(required = false) List<ProgressStage> progressStage,
+
+            @Parameter(description = "Sayfa numarasi (0'dan baslar)", example = "0")
+            @RequestParam(defaultValue = "0")
+            @Min(value = 0, message = "Sayfa numarasi 0 veya daha buyuk olmalidir.") int page,
+
+            @Parameter(description = "Sayfa boyutu (1-100)", example = "20")
+            @RequestParam(defaultValue = "20")
+            @Min(value = 1, message = "Sayfa boyutu en az 1 olmalidir.")
+            @Max(value = 100, message = "Sayfa boyutu en fazla 100 olabilir.") int size,
+
+            @Parameter(description = "Siralama: 'alan' veya 'alan,asc|desc'. Alanlar: reportDate, weekNumber, "
+                    + "projectName. Varsayilan: reportDate,desc", example = "weekNumber,asc")
+            @RequestParam(required = false) String sort) {
+
+        ReportFilter filter = new ReportFilter(projectId, ownerId, weekFrom, weekTo, dateFrom, dateTo,
+                overallStatus, riskLevel, progressStage);
+        return weeklyReportService.search(filter, page, size, sort);
     }
 
     @Operation(summary = "Haftalik rapor detayi")
