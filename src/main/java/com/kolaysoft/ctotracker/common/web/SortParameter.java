@@ -14,7 +14,7 @@ import com.kolaysoft.ctotracker.common.exception.InvalidParameterException;
  * listesindeki API alan adlari kabul edilir ve entity yoluna eslenir (or. {@code projectName -> project.name}).
  * Boylece entity alan adlari disari sizmaz ve tanimsiz bir alan Spring Data'dan istisna olarak cikip
  * 500'e dusmek yerine 400 doner. Sayfalar arasi kayma olmasin diye siralamaya her zaman ayni yonde
- * ikinci anahtar olarak {@code id} eklenir.
+ * ikinci anahtar olarak {@code id} eklenir. Bos (NULL) degerler yon ne olursa olsun her zaman sona konur.
  */
 public final class SortParameter {
 
@@ -49,7 +49,10 @@ public final class SortParameter {
         // ignoreCase: metin alanlari (or. projectName) buyuk/kucuk harfe duyarsiz siralanir; aksi halde H2
         // "PEYK"i "e-Donusum"dan once getirir ve sonuc veritabanina gore degisir. Spring Data bunu yalnizca
         // String tipindeki alanlara uygular; tarih/sayi alanlari etkilenmez.
-        return Sort.by(new Sort.Order(direction, path).ignoreCase(), new Sort.Order(direction, "id"));
+        // nullsLast: tarihsiz kayitlar (or. plannedDate) her zaman sonda. Varsayilanlar farkli: H2 artan
+        // siralamada NULL'lari basa, PostgreSQL sona koyar; acikca belirterek iki veritabaninda da ayni sonuc.
+        Sort.Order primary = new Sort.Order(direction, path).ignoreCase().nullsLast();
+        return Sort.by(primary, new Sort.Order(direction, "id"));
     }
 
     private static InvalidParameterException invalid(String value, Map<String, String> allowed) {

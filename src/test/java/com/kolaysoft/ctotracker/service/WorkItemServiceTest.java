@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.kolaysoft.ctotracker.common.exception.ResourceNotFoundException;
 import com.kolaysoft.ctotracker.dto.WorkItemRequest;
 import com.kolaysoft.ctotracker.dto.WorkItemResponse;
+import com.kolaysoft.ctotracker.entity.Project;
 import com.kolaysoft.ctotracker.entity.WeeklyReport;
 import com.kolaysoft.ctotracker.entity.WorkItem;
 import com.kolaysoft.ctotracker.entity.WorkItemStatus;
@@ -35,12 +36,21 @@ class WorkItemServiceTest {
     @Mock
     private WeeklyReportRepository weeklyReportRepository;
 
+    @Mock
+    private DelayPolicy delayPolicy;
+
     @InjectMocks
     private WorkItemService service;
 
     private WeeklyReport report(Long id) {
+        // Yanit artik proje bilgisini de iceriyor (T13); rapora bir proje baglanir.
+        Project p = new Project();
+        p.setId(1L);
+        p.setName("PEYK");
         WeeklyReport r = new WeeklyReport();
         r.setId(id);
+        r.setProject(p);
+        r.setWeekNumber(30);
         return r;
     }
 
