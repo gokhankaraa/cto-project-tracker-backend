@@ -27,6 +27,10 @@ import com.kolaysoft.ctotracker.repository.WorkItemRepository;
  * icin uygulama acilisinda birkac kullanici, proje ve haftalik rapor olusturur.
  * Idempotent: veri zaten varsa tekrar eklemez.
  *
+ * <p>Veriler kurgusaldir (proje, musteri ve kisi adlari uydurma, e-postalar {@code example.com}); repository
+ * herkese acik oldugu icin gercek sirket/musteri verisi kullanilmaz (staj yonetmeligi 8.2).
+ * Testler ve README demo senaryosu kayit id'lerine dayandigi icin yeni kayitlar yalnizca SONA eklenir.
+ *
  * <p>Gercek/uretim ortaminda calismasi istenmiyorsa profile ile sinirlandirilabilir.
  */
 @Component
@@ -54,37 +58,49 @@ public class DataSeeder implements CommandLineRunner {
             return;
         }
 
-        User ayse = saveUser("ayse@kolaysoft.com", "Ayse Yilmaz", Role.PROJECT_MANAGER);
-        User mehmet = saveUser("mehmet@kolaysoft.com", "Mehmet Kaya", Role.PROJECT_MANAGER);
-        saveUser("cto@kolaysoft.com", "Zeynep Demir", Role.CTO);
-        saveUser("admin@kolaysoft.com", "Sistem Admin", Role.ADMIN);
+        User ayse = saveUser("ayse@example.com", "Ayse Yilmaz", Role.PROJECT_MANAGER);
+        User mehmet = saveUser("mehmet@example.com", "Mehmet Kaya", Role.PROJECT_MANAGER);
+        saveUser("cto@example.com", "Zeynep Demir", Role.CTO);
+        saveUser("admin@example.com", "Sistem Admin", Role.ADMIN);
 
-        Project peyk = saveProject("PEYK", "Kolaysoft", "Insan kaynaklari surecleri urunu",
+        Project atlas = saveProject("Atlas IK", "Demo Musteri A.S.", "Insan kaynaklari surecleri urunu",
                 ProjectStatus.DEVAM_EDIYOR, ayse);
-        Project edonusum = saveProject("e-Donusum", "Kolaysoft", "e-Fatura / e-Arsiv cozumleri",
+        Project ebelge = saveProject("e-Belge", "Demo Musteri A.S.", "e-Fatura / e-Arsiv cozumleri",
                 ProjectStatus.DEVAM_EDIYOR, mehmet);
-        saveProject("EczaciPOS", "Kolaysoft", "Eczanelere POS ve yazilim cozumu",
+        saveProject("Nova POS", "Demo Musteri A.S.", "Perakende magazalar icin POS ve yazilim cozumu",
                 ProjectStatus.PLANLANDI, ayse);
 
-        WeeklyReport peykW29 = saveReport(peyk, 29, LocalDate.of(2026, 7, 20), ProgressStage.GELISTIRME,
+        WeeklyReport atlasW29 = saveReport(atlas, 29, LocalDate.of(2026, 7, 20), ProgressStage.GELISTIRME,
                 OverallStatus.YOLUNDA, RiskLevel.ORTA,
                 "Rapor formu API'si gelistirildi.", "Dashboard ozet endpoint'i.",
                 "Zaman kisiti.", "Genel gidisat iyi.");
-        saveReport(peyk, 30, LocalDate.of(2026, 7, 27), ProgressStage.TEST,
+        saveReport(atlas, 30, LocalDate.of(2026, 7, 27), ProgressStage.TEST,
                 OverallStatus.YOLUNDA, RiskLevel.DUSUK,
                 "Testler yazildi.", "Hata duzeltme.", "-", "Test asamasinda.");
-        WeeklyReport edonusumW30 = saveReport(edonusum, 30, LocalDate.of(2026, 7, 27), ProgressStage.ANALIZ,
+        WeeklyReport ebelgeW30 = saveReport(ebelge, 30, LocalDate.of(2026, 7, 27), ProgressStage.ANALIZ,
                 OverallStatus.RISKLI, RiskLevel.YUKSEK,
                 "Mevzuat analizi.", "Veri modeli.", "Mevzuat belirsizligi.", "Analiz suruyor.");
 
-        saveWorkItem(peykW29, "Rapor CRUD API'si", "Project/WeeklyReport endpoint'leri",
+        saveWorkItem(atlasW29, "Rapor CRUD API'si", "Project/WeeklyReport endpoint'leri",
                 "Ayse Yilmaz", WorkItemStatus.TAMAMLANDI);
-        saveWorkItem(peykW29, "Is kalemi modeli", "WorkItem entity ve CRUD",
+        saveWorkItem(atlasW29, "Is kalemi modeli", "WorkItem entity ve CRUD",
                 "Ayse Yilmaz", WorkItemStatus.DEVAM_EDIYOR);
-        saveWorkItem(peykW29, "Dashboard ozeti", "CTO ozet endpoint'i",
+        saveWorkItem(atlasW29, "Dashboard ozeti", "CTO ozet endpoint'i",
                 "Mehmet Kaya", WorkItemStatus.PLANLANDI);
-        saveWorkItem(edonusumW30, "Mevzuat analizi", "e-Fatura kurallari",
+        saveWorkItem(ebelgeW30, "Mevzuat analizi", "e-Fatura kurallari",
                 "Mehmet Kaya", WorkItemStatus.DEVAM_EDIYOR);
+
+        // T13 demo verisi: Atlas IK icin 3. hafta (hafta filtresi ve sayfalama gorunsun) ve gecikme ornekleri.
+        // Rapor durumu YOLUNDA olsa da planlanan tarihi rapordan once olup bitmemis is kalemi projeyi
+        // gecikmeye dusurur; tarihi gecmis ama tamamlanmis is kalemi gecikme sayilmaz (analiz notu K-T13-01).
+        WeeklyReport atlasW31 = saveReport(atlas, 31, LocalDate.of(2026, 8, 3), ProgressStage.TEST,
+                OverallStatus.YOLUNDA, RiskLevel.ORTA,
+                "Regresyon testleri tamamlandi.", "Rapor ekrani entegrasyonu.",
+                "Entegrasyon gecikmesi.", "Testler bitti, entegrasyon suruyor.");
+        saveWorkItem(atlasW31, "Rapor ekrani entegrasyonu", "Rapor formunun API'ye baglanmasi",
+                "Ayse Yilmaz", WorkItemStatus.DEVAM_EDIYOR, LocalDate.of(2026, 7, 31), null);
+        saveWorkItem(atlasW31, "Test senaryolari", "Regresyon senaryolarinin yazilmasi",
+                "Mehmet Kaya", WorkItemStatus.TAMAMLANDI, LocalDate.of(2026, 7, 30), LocalDate.of(2026, 7, 31));
 
         log.info("Ornek veri yuklendi: {} kullanici, {} proje, {} rapor, {} is kalemi",
                 userRepository.count(), projectRepository.count(),
@@ -129,12 +145,19 @@ public class DataSeeder implements CommandLineRunner {
 
     private void saveWorkItem(WeeklyReport report, String title, String description,
                               String assignee, WorkItemStatus status) {
+        saveWorkItem(report, title, description, assignee, status, null, null);
+    }
+
+    private void saveWorkItem(WeeklyReport report, String title, String description, String assignee,
+                              WorkItemStatus status, LocalDate plannedDate, LocalDate completedDate) {
         WorkItem workItem = new WorkItem();
         workItem.setWeeklyReport(report);
         workItem.setTitle(title);
         workItem.setDescription(description);
         workItem.setAssignee(assignee);
         workItem.setStatus(status);
+        workItem.setPlannedDate(plannedDate);
+        workItem.setCompletedDate(completedDate);
         workItemRepository.save(workItem);
     }
 }

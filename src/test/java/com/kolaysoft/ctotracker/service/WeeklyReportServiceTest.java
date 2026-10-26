@@ -51,7 +51,7 @@ class WeeklyReportServiceTest {
     private Project project() {
         Project p = new Project();
         p.setId(1L);
-        p.setName("PEYK");
+        p.setName("Atlas IK");
         return p;
     }
 

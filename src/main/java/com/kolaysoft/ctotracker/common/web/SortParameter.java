@@ -47,7 +47,7 @@ public final class SortParameter {
                         .orElseThrow(() -> invalid(effective, allowed));
 
         // ignoreCase: metin alanlari (or. projectName) buyuk/kucuk harfe duyarsiz siralanir; aksi halde H2
-        // "PEYK"i "e-Donusum"dan once getirir ve sonuc veritabanina gore degisir. Spring Data bunu yalnizca
+        // buyuk harfle baslayan "Nova POS"u kucuk harfle baslayan "e-Belge"den once getirir ve sonuc veritabanina gore degisir. Spring Data bunu yalnizca
         // String tipindeki alanlara uygular; tarih/sayi alanlari etkilenmez.
         // nullsLast: tarihsiz kayitlar (or. plannedDate) her zaman sonda. Varsayilanlar farkli: H2 artan
         // siralamada NULL'lari basa, PostgreSQL sona koyar; acikca belirterek iki veritabaninda da ayni sonuc.

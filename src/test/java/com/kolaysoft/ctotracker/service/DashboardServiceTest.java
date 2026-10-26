@@ -60,7 +60,7 @@ class DashboardServiceTest {
         Project p = new Project();
         p.setId(id);
         p.setName(name);
-        p.setCustomer("Kolaysoft");
+        p.setCustomer("Demo Musteri A.S.");
         p.setStatus(ProjectStatus.DEVAM_EDIYOR);
         return p;
     }
@@ -82,13 +82,13 @@ class DashboardServiceTest {
     @Test
     @DisplayName("Ozet: raporu olan ve olmayan projeler birlikte, son rapor ve sayaclar dogru")
     void summaryIncludesReportedAndUnreportedProjects() {
-        Project peyk = project(1L, "PEYK", null);
+        Project atlas = project(1L, "Atlas IK", null);
         Project bos = project(2L, "Raporsuz", null);
-        when(projectRepository.findAll(anySpec(), any(Sort.class))).thenReturn(List.of(peyk, bos));
+        when(projectRepository.findAll(anySpec(), any(Sort.class))).thenReturn(List.of(atlas, bos));
 
-        WeeklyReport peykLast = report(10L, 1L, 30, ProgressStage.TEST, RiskLevel.YUKSEK);
+        WeeklyReport atlasLast = report(10L, 1L, 30, ProgressStage.TEST, RiskLevel.YUKSEK);
         when(weeklyReportRepository.findTopByProjectIdOrderByWeekNumberDesc(1L))
-                .thenReturn(Optional.of(peykLast));
+                .thenReturn(Optional.of(atlasLast));
         when(weeklyReportRepository.findTopByProjectIdOrderByWeekNumberDesc(2L))
                 .thenReturn(Optional.empty());
         when(workItemRepository.countByWeeklyReportIdAndStatus(10L, WorkItemStatus.DEVAM_EDIYOR))
@@ -101,12 +101,12 @@ class DashboardServiceTest {
         assertThat(summary.projectsWithoutReport()).isEqualTo(1);
         assertThat(summary.totalLiveTasks()).isEqualTo(2);
 
-        var peykSummary = summary.projects().stream().filter(s -> s.projectId().equals(1L)).findFirst().orElseThrow();
-        assertThat(peykSummary.hasReport()).isTrue();
-        assertThat(peykSummary.lastWeekNumber()).isEqualTo(30);
-        assertThat(peykSummary.progressStage()).isEqualTo(ProgressStage.TEST);
-        assertThat(peykSummary.progressPercentage()).isEqualTo(75);
-        assertThat(peykSummary.liveTaskCount()).isEqualTo(2);
+        var atlasSummary = summary.projects().stream().filter(s -> s.projectId().equals(1L)).findFirst().orElseThrow();
+        assertThat(atlasSummary.hasReport()).isTrue();
+        assertThat(atlasSummary.lastWeekNumber()).isEqualTo(30);
+        assertThat(atlasSummary.progressStage()).isEqualTo(ProgressStage.TEST);
+        assertThat(atlasSummary.progressPercentage()).isEqualTo(75);
+        assertThat(atlasSummary.liveTaskCount()).isEqualTo(2);
 
         var bosSummary = summary.projects().stream().filter(s -> s.projectId().equals(2L)).findFirst().orElseThrow();
         assertThat(bosSummary.hasReport()).isFalse();
@@ -118,16 +118,16 @@ class DashboardServiceTest {
     @Test
     @DisplayName("Risk filtresi: yalnizca istenen risk seviyesindeki projeler doner")
     void riskFilterReturnsOnlyMatchingProjects() {
-        Project peyk = project(1L, "PEYK", null);
-        Project edonusum = project(2L, "e-Donusum", null);
-        when(projectRepository.findAll(anySpec(), any(Sort.class))).thenReturn(List.of(peyk, edonusum));
+        Project atlas = project(1L, "Atlas IK", null);
+        Project ebelge = project(2L, "e-Belge", null);
+        when(projectRepository.findAll(anySpec(), any(Sort.class))).thenReturn(List.of(atlas, ebelge));
 
-        WeeklyReport peykLast = report(10L, 1L, 30, ProgressStage.TEST, RiskLevel.DUSUK);
-        WeeklyReport edonusumLast = report(20L, 2L, 30, ProgressStage.ANALIZ, RiskLevel.YUKSEK);
+        WeeklyReport atlasLast = report(10L, 1L, 30, ProgressStage.TEST, RiskLevel.DUSUK);
+        WeeklyReport ebelgeLast = report(20L, 2L, 30, ProgressStage.ANALIZ, RiskLevel.YUKSEK);
         when(weeklyReportRepository.findTopByProjectIdOrderByWeekNumberDesc(1L))
-                .thenReturn(Optional.of(peykLast));
+                .thenReturn(Optional.of(atlasLast));
         when(weeklyReportRepository.findTopByProjectIdOrderByWeekNumberDesc(2L))
-                .thenReturn(Optional.of(edonusumLast));
+                .thenReturn(Optional.of(ebelgeLast));
         lenient().when(workItemRepository.countByWeeklyReportIdAndStatus(any(), eq(WorkItemStatus.DEVAM_EDIYOR)))
                 .thenReturn(0L);
 

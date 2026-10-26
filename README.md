@@ -160,13 +160,17 @@ Swagger and the endpoints are usable immediately without manual setup:
 
 | id | email | role |
 |---|---|---|
-| 1 | `ayse@kolaysoft.com` | PROJECT_MANAGER |
-| 2 | `mehmet@kolaysoft.com` | PROJECT_MANAGER |
-| 3 | `cto@kolaysoft.com` | CTO |
-| 4 | `admin@kolaysoft.com` | ADMIN |
+| 1 | `ayse@example.com` | PROJECT_MANAGER |
+| 2 | `mehmet@example.com` | PROJECT_MANAGER |
+| 3 | `cto@example.com` | CTO |
+| 4 | `admin@example.com` | ADMIN |
 
-- **Projects:** PEYK (owner: Ayşe), e-Donusum (owner: Mehmet), EczaciPOS (owner: Ayşe, no report yet)
-- **Weekly reports:** PEYK weeks 29–30, e-Donusum week 30, with a few work items
+- **Projects:** Atlas IK (owner: Ayşe), e-Belge (owner: Mehmet), Nova POS (owner: Ayşe, no report yet)
+- **Weekly reports:** Atlas IK weeks 29–31, e-Belge week 30, with a few work items. Atlas IK week 31 has
+  an overdue work item, so the project shows `delayed: true` even though its status is `YOLUNDA`.
+
+All sample data is fictional (project, customer and person names are made up; emails use the reserved
+`example.com` domain). The repository is public, so no real company or customer data is used.
 
 ## Demo scenario
 
@@ -175,17 +179,17 @@ values come from the responses of the previous steps.
 
 1. **CTO opens the dashboard** — see every project's latest status in one view:
    `GET /api/dashboard/summary` → 200, portfolio counters + per-project rows
-2. **Filter high-risk projects:** `GET /api/dashboard/summary?riskLevel=YUKSEK` → only e-Donusum
+2. **Filter high-risk projects:** `GET /api/dashboard/summary?riskLevel=YUKSEK` → only e-Belge
 3. **Drill into a project:** `GET /api/projects/3` and `GET /api/projects/3/reports`
-   (EczaciPOS has no report yet)
-4. **PM files a weekly report** for EczaciPOS (id 3):
+   (Nova POS has no report yet)
+4. **PM files a weekly report** for Nova POS (id 3):
    `POST /api/projects/3/reports` `{ "weekNumber": 33, "reportDate": "2026-08-13",
    "progressStage": "ANALIZ", "overallStatus": "YOLUNDA", "riskLevel": "DUSUK" }` → 201, `progressPercentage: 25`
 5. **Add a work item** to that report: `POST /api/reports/{reportId}/work-items`
    `{ "title": "Kickoff", "status": "DEVAM_EDIYOR", "assignee": "Ayşe" }` → 201
 6. **Re-read the report** — the live task count reflects the new item:
    `GET /api/reports/{reportId}` → `liveTaskCount: 1`
-7. **Back to the dashboard** — EczaciPOS now shows `hasReport: true` with the fresh status.
+7. **Back to the dashboard** — Nova POS now shows `hasReport: true` with the fresh status.
 
 Negative checks worth showing: a duplicate `(project, week)` report → **409**, skipping a progress
 stage on update → **400**, deleting a project that still has reports → **409**.

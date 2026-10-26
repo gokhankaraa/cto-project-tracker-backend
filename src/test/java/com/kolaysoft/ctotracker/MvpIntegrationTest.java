@@ -26,8 +26,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * is kalemi -> dashboard akisi ve kritik negatif senaryolar. Her test {@code @Transactional}
  * ile izole edilir; olusturulan veriler test sonunda geri alinir (seed verisi korunur).
  *
- * <p>Seed verisine dayanir (DataSeeder): kullanici id 1 = Ayse (PM), proje id 1 = PEYK
- * (hafta 29 ve 30 raporlu), proje id 3 = EczaciPOS (raporsuz).
+ * <p>Seed verisine dayanir (DataSeeder): kullanici id 1 = Ayse (PM), proje id 1 = Atlas IK
+ * (hafta 29, 30 ve 31 raporlu), proje id 3 = Nova POS (raporsuz).
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -47,7 +47,7 @@ class MvpIntegrationTest {
     @Test
     @DisplayName("Happy path: raporsuz projeye rapor + is kalemi eklenir, dashboard'a yansir")
     void endToEndHappyPath() throws Exception {
-        // Proje 3 (EczaciPOS) baslangicta raporsuz -> dashboard'da hasReport=false
+        // Proje 3 (Nova POS) baslangicta raporsuz -> dashboard'da hasReport=false
         mockMvc.perform(get("/api/dashboard/summary"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.projects[?(@.projectId==3)].hasReport").value(org.hamcrest.Matchers.hasItem(false)));
@@ -117,7 +117,7 @@ class MvpIntegrationTest {
     @Test
     @DisplayName("Is kurali: ayni proje+hafta ikinci rapor 409")
     void duplicateReportReturns409() throws Exception {
-        // Proje 1 (PEYK) hafta 29 seed'de mevcut
+        // Proje 1 (Atlas IK) hafta 29 seed'de mevcut
         String body = """
                 { "weekNumber": 29, "reportDate": "2026-07-20", "progressStage": "ANALIZ",
                   "overallStatus": "YOLUNDA", "riskLevel": "DUSUK" }
@@ -162,7 +162,7 @@ class MvpIntegrationTest {
     @Test
     @DisplayName("Dashboard: risk filtresi yalnizca eslesen projeleri doner")
     void dashboardRiskFilterWorks() throws Exception {
-        // Seed: e-Donusum (proje 2) son raporu YUKSEK risk
+        // Seed: e-Belge (proje 2) son raporu YUKSEK risk
         mockMvc.perform(get("/api/dashboard/summary").param("riskLevel", "YUKSEK"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.projects[*].riskLevel")

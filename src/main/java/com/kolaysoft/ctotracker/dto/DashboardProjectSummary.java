@@ -19,10 +19,10 @@ public record DashboardProjectSummary(
         @Schema(description = "Proje id'si", example = "1")
         Long projectId,
 
-        @Schema(description = "Proje adi", example = "PEYK")
+        @Schema(description = "Proje adi", example = "Atlas IK")
         String name,
 
-        @Schema(description = "Musteri", example = "Kolaysoft")
+        @Schema(description = "Musteri", example = "Demo Musteri A.S.")
         String customer,
 
         @Schema(description = "Sorumlu proje yoneticisi", example = "Ayse Yilmaz")

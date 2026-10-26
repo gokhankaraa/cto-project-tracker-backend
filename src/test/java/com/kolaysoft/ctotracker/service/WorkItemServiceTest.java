@@ -46,7 +46,7 @@ class WorkItemServiceTest {
         // Yanit artik proje bilgisini de iceriyor (T13); rapora bir proje baglanir.
         Project p = new Project();
         p.setId(1L);
-        p.setName("PEYK");
+        p.setName("Atlas IK");
         WeeklyReport r = new WeeklyReport();
         r.setId(id);
         r.setProject(p);

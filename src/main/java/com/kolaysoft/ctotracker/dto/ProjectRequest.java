@@ -11,12 +11,12 @@ import jakarta.validation.constraints.Size;
 @Schema(description = "Proje olusturma/guncelleme istegi")
 public record ProjectRequest(
 
-        @Schema(description = "Proje adi", example = "PEYK")
+        @Schema(description = "Proje adi", example = "Atlas IK")
         @NotBlank(message = "Proje adi zorunludur.")
         @Size(max = 255, message = "Proje adi en fazla 255 karakter olabilir.")
         String name,
 
-        @Schema(description = "Musteri veya demo musteri", example = "Kolaysoft")
+        @Schema(description = "Musteri veya demo musteri", example = "Demo Musteri A.S.")
         @Size(max = 255, message = "Musteri en fazla 255 karakter olabilir.")
         String customer,
 

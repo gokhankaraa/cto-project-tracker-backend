@@ -22,7 +22,7 @@ public record WorkItemResponse(
         @Schema(description = "Raporun ait olduğu proje id'si (T13)", example = "1")
         Long projectId,
 
-        @Schema(description = "Raporun ait olduğu projenin adı (T13)", example = "PEYK")
+        @Schema(description = "Raporun ait olduğu projenin adı (T13)", example = "Atlas IK")
         String projectName,
 
         @Schema(description = "Bağlı olduğu raporun hafta numarası (T13)", example = "29")

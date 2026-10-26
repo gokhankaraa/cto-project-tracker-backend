@@ -47,7 +47,7 @@ class ProjectServiceTest {
     private User owner() {
         User u = new User();
         u.setId(1L);
-        u.setEmail("ayse@kolaysoft.com");
+        u.setEmail("ayse@example.com");
         u.setFullName("Ayse Yilmaz");
         u.setRole(Role.PROJECT_MANAGER);
         return u;
@@ -64,10 +64,10 @@ class ProjectServiceTest {
         });
 
         ProjectResponse response = service.create(
-                new ProjectRequest("PEYK", "Kolaysoft", "aciklama", ProjectStatus.DEVAM_EDIYOR, 1L));
+                new ProjectRequest("Atlas IK", "Demo Musteri A.S.", "aciklama", ProjectStatus.DEVAM_EDIYOR, 1L));
 
         assertThat(response.id()).isEqualTo(7L);
-        assertThat(response.name()).isEqualTo("PEYK");
+        assertThat(response.name()).isEqualTo("Atlas IK");
         assertThat(response.status()).isEqualTo(ProjectStatus.DEVAM_EDIYOR);
         assertThat(response.ownerId()).isEqualTo(1L);
         assertThat(response.ownerFullName()).isEqualTo("Ayse Yilmaz");
@@ -79,7 +79,7 @@ class ProjectServiceTest {
         when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.create(
-                new ProjectRequest("PEYK", "Kolaysoft", "aciklama", ProjectStatus.DEVAM_EDIYOR, 99L)))
+                new ProjectRequest("Atlas IK", "Demo Musteri A.S.", "aciklama", ProjectStatus.DEVAM_EDIYOR, 99L)))
                 .isInstanceOf(ResourceNotFoundException.class);
 
         verify(projectRepository, never()).save(any());
@@ -97,7 +97,7 @@ class ProjectServiceTest {
         when(projectRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         ProjectResponse response = service.update(5L,
-                new ProjectRequest("Yeni Ad", "Kolaysoft", "guncel", ProjectStatus.DEVAM_EDIYOR, 1L));
+                new ProjectRequest("Yeni Ad", "Demo Musteri A.S.", "guncel", ProjectStatus.DEVAM_EDIYOR, 1L));
 
         assertThat(response.id()).isEqualTo(5L);
         assertThat(response.name()).isEqualTo("Yeni Ad");
@@ -111,7 +111,7 @@ class ProjectServiceTest {
         when(projectRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.update(99L,
-                new ProjectRequest("X", "Kolaysoft", "-", ProjectStatus.PLANLANDI, 1L)))
+                new ProjectRequest("X", "Demo Musteri A.S.", "-", ProjectStatus.PLANLANDI, 1L)))
                 .isInstanceOf(ResourceNotFoundException.class);
 
         verify(projectRepository, never()).save(any());
@@ -126,7 +126,7 @@ class ProjectServiceTest {
         when(userRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.update(5L,
-                new ProjectRequest("X", "Kolaysoft", "-", ProjectStatus.PLANLANDI, 99L)))
+                new ProjectRequest("X", "Demo Musteri A.S.", "-", ProjectStatus.PLANLANDI, 99L)))
                 .isInstanceOf(ResourceNotFoundException.class);
 
         verify(projectRepository, never()).save(any());
